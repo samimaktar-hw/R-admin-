@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Admin Dashboard - Rittik Mobile Shop</title>
+    <meta name="theme-color" content="#0f172a"/>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #0b1121; color: #f8fafc; padding-bottom: 50px; }
+        
+        /* Admin Top Navbar */
+        .admin-nav { background: #1e293b; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #00e5ff; box-shadow: 0 4px 15px rgba(0,0,0,0.5);}
+        .admin-nav h2 { color: #00e5ff; font-size: 20px; margin: 0;}
+        
+        /* Notification Bell */
+        .nav-icons { display: flex; align-items: center; gap: 15px; }
+        .bell-icon { position: relative; cursor: pointer; font-size: 24px; color: #fff;}
+        .red-dot { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; font-size: 10px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; display: none;}
+        .logout-btn { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;}
+
+        /* Dashboard Tabs */
+        .tabs { display: flex; overflow-x: auto; background: #1e293b; border-bottom: 1px solid #334155; padding: 10px 10px 0 10px; gap: 10px;}
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { padding: 10px 15px; background: transparent; color: #94a3b8; border: none; border-bottom: 3px solid transparent; font-weight: bold; cursor: pointer; white-space: nowrap;}
+        .tab-btn.active { color: #00e5ff; border-bottom-color: #00e5ff; }
+
+        /* Content Sections */
+        .section-content { display: none; padding: 20px; }
+        .section-content.active { display: block; }
+        
+        /* Cards */
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 15px; margin-bottom: 15px; position: relative;}
+        .card h4 { color: #00e5ff; margin-bottom: 10px; font-size: 16px;}
+        .card p { color: #cbd5e1; font-size: 13px; margin-bottom: 5px;}
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-bottom: 10px;}
+        .bg-home { background: #f59e0b; color: #fff; }
+        .bg-store { background: #3b82f6; color: #fff; }
+
+        /* Inputs & Buttons */
+        .input-group { margin-bottom: 15px; }
+        .row { display: flex; gap: 10px; }
+        .row .input-group { flex: 1; }
+        .input-group label { display: block; margin-bottom: 5px; color: #94a3b8; font-size: 13px;}
+        .input-group input, .input-group textarea, .input-group select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 5px; color: white; outline: none;}
+        .input-group input:focus, .input-group textarea:focus { border-color: #00e5ff;}
+        .input-group input[type="file"] { border: 1px dashed #00e5ff; color: #00e5ff;}
+        
+        .btn-primary { background: #00e5ff; color: #0f172a; border: none; padding: 12px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px;}
+        .btn-success { background: #10b981; color: #fff; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer;}
+        
+        /* Toggle Switch for Out of Stock */
+        .switch-box { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px;}
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 20px;}
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;}
+        input:checked + .slider { background-color: #00e5ff; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* Launch Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center;}
+        .modal-content { background: #1e293b; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #00e5ff;}
+        #uploadStatus { text-align: center; margin-top: 10px; font-weight: bold; color: #00e5ff; display: none;}
+    </style>
+</head>
+<body>
+
+    <div class="admin-nav">
+        <h2>Admin Panel</h2>
+        <div class="nav-icons">
+            <div class="bell-icon">
+                🔔 <div class="red-dot" id="notiDot">0</div>
+            </div>
+            <button class="logout-btn" onclick="logoutAdmin()">Logout</button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('orders')">Orders</button>
+        <button class="tab-btn" onclick="switchTab('addProduct')">Add Product</button>
+        <button class="tab-btn" onclick="switchTab('sells')">Sell Requests</button>
+        <button class="tab-btn" onclick="switchTab('inventory')">Inventory</button>
+        <button class="tab-btn" onclick="switchTab('settings')">Shop Settings</button>
+    </div>
+
+    <!-- 1. Orders Section -->
+    <div id="orders" class="section-content active">
+        <h3 style="margin-bottom: 15px; color: #fff;">Customer Orders</h3>
+        <div id="orderList"><p style="color:#94a3b8;">Loading orders...</p></div>
+    </div>
+
+    <!-- 2. Add Direct Product Section (NEW) -->
+    <div id="addProduct" class="section-content">
+        <div class="card">
+            <h4>Add New Product (Direct Live)</h4>
+            <p style="margin-bottom: 15px; color: #94a3b8;">এখান থেকে প্রোডাক্ট অ্যাড করলে সেটা সরাসরি ওয়েবসাইটের হোম পেজে লাইভ হয়ে যাবে।</p>
+            
+            <div class="input-group"><label>Device Brand & Model Name:</label><input type="text" id="pName" placeholder="e.g. iPhone 14 Pro Max"></div>
+            
+            <div class="row">
+                <div class="input-group">
+                    <label>RAM:</label>
+                    <select id="pRam">
+                        <option value="2 GB">2 GB</option>
+                        <option value="3 GB">3 GB</option>
+                        <option value="4 GB" selected>4 GB</option>
+                        <option value="6 GB">6 GB</option>
+                        <option value="8 GB">8 GB</option>
+                        <option value="12 GB">12 GB</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Storage (ROM):</label>
+                    <select id="pRom">
+                        <option value="32 GB">32 GB</option>
+                        <option value="64 GB">64 GB</option>
+                        <option value="128 GB" selected>128 GB</option>
+                        <option value="256 GB">256 GB</option>
+                        <option value="512 GB">512 GB</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group"><label>Selling Price (₹):</label><input type="number" id="pPrice" placeholder="e.g. 85000"></div>
+            
+            <div class="input-group">
+                <label>Upload Product Images (Max 4):</label>
+                <input type="file" id="pImage" accept="image/*" multiple>
+            </div>
+            
+            <button class="btn-primary" onclick="publishDirectProduct()">PUBLISH PRODUCT TO LIVE</button>
+            <div id="uploadStatus">Uploading... Please wait ⏳</div>
+        </div>
+    </div>
+
+    <!-- 3. Sell Requests Section -->
+    <div id="sells" class="section-content">
+        <h3 style="margin-bottom: 15px; color: #fff;">Pending Sell Requests</h3>
+        <div id="sellList"><p style="color:#94a3b8;">Loading requests...</p></div>
+    </div>
+
+    <!-- 4. Inventory Section (Out of Stock Control) -->
+    <div id="inventory" class="section-content">
+        <h3 style="margin-bottom: 15px; color: #fff;">Live Products</h3>
+        <div id="inventoryList"><p style="color:#94a3b8;">Loading inventory...</p></div>
+    </div>
+
+    <!-- 5. Shop Settings Section -->
+    <div id="settings" class="section-content">
+        <div class="card">
+            <h4>Your Shop Details</h4>
+            <p style="margin-bottom: 15px; color: #94a3b8;">একবার এখানে সেভ করলে ওয়েবসাইটের সব প্রোডাক্টে এই ঠিকানা শো করবে।</p>
+            <div class="input-group"><label>Shop Name:</label><input type="text" id="shopName" placeholder="e.g. Rittik Mobile Shop"></div>
+            <div class="input-group"><label>Full Address & Pincode:</label><textarea id="shopAddress" rows="3" placeholder="e.g. New Market, Kolkata, 700087"></textarea></div>
+            <div class="input-group"><label>Google Map HTML Iframe (Location):</label><textarea id="shopMap" rows="3" placeholder='<iframe src="..."></iframe>'></textarea></div>
+            <button class="btn-primary" onclick="saveShopSettings()">SAVE SETTINGS</button>
+            <p id="saveStatus" style="color: #10b981; font-weight: bold; display: none; margin-top: 10px; text-align: center;">Settings Saved!</p>
+        </div>
+    </div>
+
+    <!-- Launch Modal -->
+    <div id="launchModal" class="modal">
+        <div class="modal-content">
+            <h3 style="color: #00e5ff; margin-bottom: 15px;">Launch Product</h3>
+            <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 15px;">প্রোডাক্টটি ওয়েবসাইটে লাইভ করতে আপনার (Owner) কন্টাক্ট নম্বর দিন, যা সেলার দেখতে পাবে।</p>
+            <input type="hidden" id="launchProdId">
+            <div class="input-group">
+                <label>Admin Mobile Number:</label>
+                <input type="number" id="adminContact" placeholder="Your Number">
+            </div>
+            <button class="btn-success" style="width: 100%;" onclick="confirmLaunch()">Approve & Make Live</button>
+            <button class="btn-primary" style="background: transparent; color: #ef4444; border: 1px solid #ef4444;" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, onValue, set, update, get, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBIddmdEKtGl0OI97ky6Q3JJBs2dOzbnbA",
+            authDomain: "rittik-mobile-shop-web-1.firebaseapp.com",
+            databaseURL: "https://rittik-mobile-shop-web-1-default-rtdb.firebaseio.com",
+            projectId: "rittik-mobile-shop-web-1"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const imgBbApiKey = '9c5f00338e35531cea0b042dd08750b6';
+
+        // Security Check: Only allow specific admin email
+        const ADMIN_EMAIL = "ask271670@gmail.com"; 
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user || user.email !== ADMIN_EMAIL) {
+                alert("Access Denied! You are not the admin.");
+                window.location.href = "index.html";
+            }
+        });
+
+        window.logoutAdmin = () => { signOut(auth).then(() => window.location.href = "index.html"); }
+
+        // Tab Switcher
+        window.switchTab = (tabId) => {
+            document.querySelectorAll('.section-content').forEach(e => e.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // --- Load Shop Settings ---
+        onValue(ref(db, 'admin_settings/shop'), (snapshot) => {
+            if(snapshot.exists()){
+                const data = snapshot.val();
+                document.getElementById('shopName').value = data.name || '';
+                document.getElementById('shopAddress').value = data.address || '';
+                document.getElementById('shopMap').value = data.map || '';
+            }
+        });
+
+        window.saveShopSettings = () => {
+            set(ref(db, 'admin_settings/shop'), {
+                name: document.getElementById('shopName').value,
+                address: document.getElementById('shopAddress').value,
+                map: document.getElementById('shopMap').value
+            }).then(() => {
+                document.getElementById('saveStatus').style.display = 'block';
+                setTimeout(() => document.getElementById('saveStatus').style.display = 'none', 3000);
+            });
+        }
+
+        // --- Load Data & Notifications ---
+        let totalOrders = 0;
+        let totalSells = 0;
+        function updateNotification(count, type) {
+            if(type === 'orders') totalOrders = count;
+            if(type === 'sells') totalSells = count;
+            let total = totalOrders + totalSells;
+            const dot = document.getElementById('notiDot');
+            if(total > 0) {
+                dot.style.display = 'flex';
+                dot.innerText = total;
+            } else { dot.style.display = 'none'; }
+        }
+
+        // 1. Orders
+        onValue(ref(db, 'orders'), (snapshot) => {
+            const list = document.getElementById('orderList');
+            list.innerHTML = '';
+            let newOrders = 0;
+            if(snapshot.exists()) {
+                Object.keys(snapshot.val()).reverse().forEach(key => {
+                    const order = snapshot.val()[key];
+                    newOrders++; 
+                    let badge = order.deliveryType === 'home' ? `<span class="badge bg-home">Home Delivery</span>` : `<span class="badge bg-store">Store Pickup</span>`;
+                    
+                    list.innerHTML += `
+                        <div class="card">
+                            ${badge}
+                            <h4>${order.productName} (₹${order.productPrice})</h4>
+                            <p><strong>Name:</strong> ${order.customerName}</p>
+                            <p><strong>Phone:</strong> ${order.customerPhone}</p>
+                            <p><strong>Address:</strong> ${order.address}</p>
+                            <p style="font-size: 11px; margin-top:10px; color: #10b981;">Ordered On: ${order.date}</p>
+                        </div>
+                    `;
+                });
+            } else { list.innerHTML = '<p style="color:#94a3b8;">No orders yet.</p>'; }
+            updateNotification(newOrders, 'orders');
+        });
+
+        // 3. & 4. Sell Requests & Inventory
+        onValue(ref(db, 'products'), (snapshot) => {
+            const sellList = document.getElementById('sellList');
+            const invList = document.getElementById('inventoryList');
+            sellList.innerHTML = ''; invList.innerHTML = '';
+            let pendingSellsCount = 0;
+
+            if(snapshot.exists()) {
+                Object.keys(snapshot.val()).reverse().forEach(key => {
+                    const prod = snapshot.val()[key];
+                    
+                    // Pending Sell Requests
+                    if(prod.type === 'seller' && prod.status === 'pending') {
+                        pendingSellsCount++;
+                        sellList.innerHTML += `
+                            <div class="card">
+                                <h4>${prod.name}</h4>
+                                <p><strong>Seller:</strong> ${prod.userEmail}</p>
+                                <p><strong>Expected Price:</strong> ₹${prod.price}</p>
+                                <p><strong>Seller Contact:</strong> ${prod.contact}</p>
+                                <button class="btn-primary" onclick="openLaunchModal('${key}')">Review & Launch</button>
+                            </div>
+                        `;
+                    }
+                    
+                    // Approved Inventory (Live Products)
+                    if(prod.status === 'approved' || prod.type === 'admin') {
+                        let isChecked = prod.outOfStock ? '' : 'checked';
+                        let stockText = prod.outOfStock ? '<span style="color:#ef4444;">Out of Stock</span>' : '<span style="color:#10b981;">In Stock (Live)</span>';
+                        let imgUrl = prod.images && prod.images.length > 0 ? prod.images[0] : 'https://via.placeholder.com/50?text=Img';
+                        
+                        invList.innerHTML += `
+                            <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:15px;">
+                                    <img src="${imgUrl}" style="width:50px; height:50px; object-fit:contain; border-radius:5px; background:#fff;">
+                                    <div>
+                                        <h4 style="margin:0;">${prod.name}</h4>
+                                        <p style="margin:0; font-weight:bold;">₹${prod.price}</p>
+                                        <p style="margin:0; font-size:11px;">${stockText}</p>
+                                    </div>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" ${isChecked} onchange="toggleStock('${key}', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        `;
+                    }
+                });
+            }
+            if(sellList.innerHTML === '') sellList.innerHTML = '<p style="color:#94a3b8;">No pending requests.</p>';
+            if(invList.innerHTML === '') invList.innerHTML = '<p style="color:#94a3b8;">No live products found.</p>';
+            
+            updateNotification(pendingSellsCount, 'sells');
+        });
+
+        // --- 2. ADD DIRECT PRODUCT (ADMIN) ---
+        window.publishDirectProduct = async () => {
+            const name = document.getElementById('pName').value;
+            const ram = document.getElementById('pRam').value;
+            const rom = document.getElementById('pRom').value;
+            const price = document.getElementById('pPrice').value;
+            const imgInput = document.getElementById('pImage');
+            const statusBox = document.getElementById('uploadStatus');
+
+            if (!name || !price) return alert("Please enter Product Name and Price!");
+            if (imgInput.files.length === 0) return alert("Please upload at least 1 image.");
+
+            const fullModelName = `${name} (${ram} RAM, ${rom} ROM)`;
+            statusBox.style.display = 'block';
+            let uploadedUrls = [];
+
+            try {
+                // Fetch Shop Details for address mapping
+                const shopSnap = await get(ref(db, 'admin_settings/shop'));
+                const shop = shopSnap.exists() ? shopSnap.val() : { name: "Rittik Mobile Shop", address: "", map: "" };
+
+                // Upload Images to ImgBB
+                for (let i = 0; i < Math.min(imgInput.files.length, 4); i++) {
+                    const formData = new FormData();
+                    formData.append('image', imgInput.files[i]);
+                    const res = await fetch(`https://api.imgbb.com/1/upload?key=${imgBbApiKey}`, { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (data.success) uploadedUrls.push(data.data.url);
+                }
+
+                // Push to Firebase directly as 'admin' type (Auto Live)
+                push(ref(db, 'products'), {
+                    name: fullModelName,
+                    price: price,
+                    images: uploadedUrls,
+                    highlights: { ram: ram, rom: rom },
+                    type: 'admin',
+                    status: 'approved',
+                    outOfStock: false,
+                    address: shop.address,
+                    shopName: shop.name,
+                    shopMap: shop.map,
+                    date: new Date().toLocaleString()
+                });
+
+                statusBox.innerText = "Product Published to Live Successfully!";
+                statusBox.style.color = "#10b981";
+                setTimeout(() => { 
+                    statusBox.style.display = 'none';
+                    statusBox.innerText = "Uploading... Please wait ⏳";
+                    document.getElementById('pName').value = '';
+                    document.getElementById('pPrice').value = '';
+                    document.getElementById('pImage').value = '';
+                    switchTab('inventory'); // Auto switch to inventory
+                }, 2000);
+
+            } catch(e) {
+                alert("Upload Error: " + e.message);
+                statusBox.style.display = 'none';
+            }
+        }
+
+        // --- Launch Modal Logic (For Sell Requests) ---
+        window.openLaunchModal = (id) => {
+            document.getElementById('launchProdId').value = id;
+            document.getElementById('launchModal').style.display = 'flex';
+        }
+        window.closeModal = () => { document.getElementById('launchModal').style.display = 'none'; }
+        
+        window.confirmLaunch = async () => {
+            const adminPhone = document.getElementById('adminContact').value;
+            const prodId = document.getElementById('launchProdId').value;
+            if(!adminPhone) return alert("Please enter your contact number!");
+
+            const shopSnap = await get(ref(db, 'admin_settings/shop'));
+            const shop = shopSnap.exists() ? shopSnap.val() : { name: "Rittik Mobile Shop", address: "", map: "" };
+
+            update(ref(db, `products/${prodId}`), {
+                status: 'approved',
+                adminContact: adminPhone,
+                address: shop.address,
+                shopName: shop.name,
+                shopMap: shop.map,
+                outOfStock: false
+            }).then(() => {
+                alert("Product Launched Successfully!");
+                closeModal();
+            });
+        }
+
+        // --- Out of Stock Toggle ---
+        window.toggleStock = (id, isLive) => {
+            update(ref(db, `products/${id}`), {
+                outOfStock: !isLive 
+            });
+        }
+    </script>
+</body>
+</html>
