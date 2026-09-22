@@ -1,2279 +1,3328 @@
-import {
-  initializeApp
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+// ============================================================
+// RITTIK MOBILE SHOP - ADMIN PANEL
+// Firebase Realtime Database
+// LOGIN DISABLED FOR NOW
+// ============================================================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
-  getAuth,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-
-import {
-  getDatabase,
-  ref,
-  set,
-  update,
-  push,
-  remove,
-  onValue,
-  get
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+    getDatabase,
+    ref,
+    onValue,
+    set,
+    update,
+    push,
+    remove
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 
-/* =========================================================
-   FIREBASE CONFIG
-   ========================================================= */
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
 
 const firebaseConfig = {
 
-  apiKey: "PASTE_YOUR_EXISTING_FIREBASE_WEB_API_KEY",
+    // এখানে তোমার আগের admin.js-এর একই apiKey বসাও
+    apiKey: "AIzaSyBIddmdEKtGl0OI97ky6Q3JJBs2dOzbnbA",
 
-  authDomain:
-    "rittik-mobile-shop-web-1.firebaseapp.com",
+    databaseURL:
+        "https://rittik-mobile-shop-web-1-default-rtdb.firebaseio.com",
 
-  databaseURL:
-    "https://rittik-mobile-shop-web-1-default-rtdb.firebaseio.com",
-
-  projectId:
-    "rittik-mobile-shop-web-1",
-
-  storageBucket:
-    "rittik-mobile-shop-web-1.firebasestorage.app",
-
-  messagingSenderId:
-    "PASTE_YOUR_EXISTING_MESSAGING_SENDER_ID",
-
-  appId:
-    "PASTE_YOUR_EXISTING_APP_ID"
+    projectId:
+        "rittik-mobile-shop-web-1"
 };
 
 
-const app = initializeApp(firebaseConfig);
+// ============================================================
+// FIREBASE INITIALIZE
+// ============================================================
 
-const auth = getAuth(app);
+let app = null;
+let db = null;
 
-const db = getDatabase(app);
+try {
 
+    app = initializeApp(
+        firebaseConfig,
+        "RittikAdminPanel"
+    );
 
-/* =========================================================
-   ADMIN AUTHORIZATION
-   =========================================================
+    db = getDatabase(app);
 
-   এখানে শুধুমাত্র তোমার আসল admin email রাখবে।
-*/
+    console.log(
+        "Firebase Admin connected successfully."
+    );
 
-const ADMIN_EMAILS = [
+} catch (error) {
 
-  "samimak7312@gmail.com",
+    console.error(
+        "Firebase initialization failed:",
+        error
+    );
 
-  "admin@rittikmobile.com",
+    alert(
+        "Firebase connection failed.\n\n" +
+        "Check your Firebase configuration."
+    );
 
-  "admin@rittik.com",
-
-  "owner@rittikmobile.com"
-
-].map(e => e.toLowerCase());
-
-
-/* =========================================================
-   DATA
-   ========================================================= */
-
-let products = [];
-let orders = [];
-let sellRequests = [];
-let customers = [];
-
-let currentSell = null;
-
-
-/* =========================================================
-   ELEMENT HELPERS
-   ========================================================= */
-
-const $ = id => document.getElementById(id);
-
-
-/* =========================================================
-   TOAST
-   ========================================================= */
-
-function toast(message) {
-
-  const el = $("toast");
-
-  if (!el) return;
-
-  el.textContent = message;
-
-  el.classList.add("show");
-
-  setTimeout(() => {
-
-    el.classList.remove("show");
-
-  }, 3000);
 }
 
 
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
+// ============================================================
+// GLOBAL DATA
+// ============================================================
+
+let allProducts = [];
+let allOrders = [];
+let allSellerRequests = [];
+let allCustomers = [];
+
+let currentSellRequest = null;
+
+
+// ============================================================
+// HELPER
+// ============================================================
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+
+function escapeHTML(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+function formatMoney(value) {
+
+    const number = Number(value || 0);
+
+    return "₹ " +
+        number.toLocaleString("en-IN");
+}
+
+
+function showToast(message) {
+
+    let toast = $("adminToast");
+
+    if (!toast) {
+
+        toast = document.createElement("div");
+
+        toast.id = "adminToast";
+
+        toast.style.position = "fixed";
+        toast.style.bottom = "25px";
+        toast.style.right = "25px";
+        toast.style.zIndex = "99999";
+        toast.style.padding = "14px 20px";
+        toast.style.background = "#111";
+        toast.style.color = "#00ff88";
+        toast.style.border = "1px solid #00ff88";
+        toast.style.borderRadius = "8px";
+        toast.style.fontWeight = "600";
+        toast.style.boxShadow =
+            "0 0 20px rgba(0,255,136,.25)";
+
+        document.body.appendChild(toast);
+    }
+
+    toast.textContent = message;
+
+    toast.style.display = "block";
+
+    clearTimeout(window.__toastTimer);
+
+    window.__toastTimer = setTimeout(() => {
+
+        toast.style.display = "none";
+
+    }, 3000);
+}
+
+
+// ============================================================
+// NAVIGATION
+// ============================================================
 
 window.openSection = function(sectionName) {
 
-  document.querySelectorAll(".section").forEach(section => {
+    document
+        .querySelectorAll(".admin-section")
+        .forEach(section => {
 
-    section.classList.remove("active");
+            section.classList.remove("active");
 
-  });
+            section.style.display = "none";
 
-
-  const section = $(sectionName);
-
-  if (section) {
-
-    section.classList.add("active");
-
-  }
+        });
 
 
-  document.querySelectorAll(".nav-btn").forEach(btn => {
-
-    btn.classList.toggle(
-      "active",
-      btn.dataset.section === sectionName
-    );
-
-  });
+    const target =
+        $("section-" + sectionName);
 
 
-  const title = document.querySelector(
-    `.nav-btn[data-section="${sectionName}"] span`
-  );
+    if (target) {
 
-  $("pageTitle").textContent =
-    title ? title.textContent : "Dashboard";
+        target.classList.add("active");
+
+        target.style.display = "block";
+
+    }
 
 
-  document.querySelector(".sidebar")
-    ?.classList.remove("open");
+    document
+        .querySelectorAll(".nav-link")
+        .forEach(link => {
+
+            link.classList.remove("active");
+
+        });
+
+
+    const nav =
+        $("nav-" + sectionName);
+
+
+    if (nav) {
+
+        nav.classList.add("active");
+
+    }
 
 };
 
 
-document.querySelectorAll(".nav-btn").forEach(btn => {
-
-  btn.addEventListener("click", () => {
-
-    openSection(btn.dataset.section);
-
-  });
-
-});
+// Compatibility
+window.switchAdminSection =
+    window.openSection;
 
 
-$("mobileMenuBtn")?.addEventListener("click", () => {
+// ============================================================
+// INITIAL NAVIGATION
+// ============================================================
 
-  document.querySelector(".sidebar")
-    ?.classList.toggle("open");
+function initializeNavigation() {
 
-});
-
-
-/* =========================================================
-   AUTH
-   ========================================================= */
-
-$("loginForm").addEventListener("submit", async e => {
-
-  e.preventDefault();
-
-  const email =
-    $("email").value.trim().toLowerCase();
-
-  const password =
-    $("password").value;
+    const sections =
+        document.querySelectorAll(
+            ".admin-section"
+        );
 
 
-  const errorBox = $("loginError");
+    sections.forEach(
+        (section, index) => {
 
-  errorBox.style.display = "none";
+            if (index === 0) {
 
+                section.style.display =
+                    "block";
 
-  if (!ADMIN_EMAILS.includes(email)) {
+                section.classList.add(
+                    "active"
+                );
 
-    errorBox.textContent =
-      "This email is not authorized as an administrator.";
+            } else {
 
-    errorBox.style.display = "block";
+                section.style.display =
+                    "none";
 
-    return;
-  }
+            }
 
-
-  try {
-
-    await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
+        }
     );
 
-  } catch (error) {
-
-    errorBox.textContent =
-      error.message || "Login failed.";
-
-    errorBox.style.display = "block";
-
-  }
-
-});
+}
 
 
-onAuthStateChanged(auth, user => {
+// ============================================================
+// SERVICES
+// ============================================================
 
-  if (!user) {
+function loadServices() {
 
-    $("loginScreen").classList.remove("hidden");
-
-    $("adminApp").classList.add("hidden");
-
-    return;
-
-  }
+    if (!db) return;
 
 
-  const email =
-    (user.email || "").toLowerCase();
+    onValue(
+        ref(db, "services"),
+        snapshot => {
+
+            const data =
+                snapshot.val() || {};
 
 
-  if (!ADMIN_EMAILS.includes(email)) {
-
-    signOut(auth);
-
-    return;
-
-  }
+            if ($("serviceBuy"))
+                $("serviceBuy").value =
+                    data.buy || "";
 
 
-  $("loginScreen").classList.add("hidden");
-
-  $("adminApp").classList.remove("hidden");
-
-  $("adminEmail").textContent =
-    user.email;
+            if ($("serviceSell"))
+                $("serviceSell").value =
+                    data.sell || "";
 
 
-  startFirebaseListeners();
-
-});
-
-
-$("logoutBtn").addEventListener("click", async () => {
-
-  await signOut(auth);
-
-});
+            if ($("serviceTracking"))
+                $("serviceTracking").value =
+                    data.tracking || "";
 
 
-/* =========================================================
-   FIREBASE LISTENERS
-   ========================================================= */
+            if ($("serviceVerification"))
+                $("serviceVerification").value =
+                    data.verification || "";
 
-function startFirebaseListeners() {
-
-  listenProducts();
-
-  listenOrders();
-
-  listenSellRequests();
-
-  listenStoreLocation();
-
-  listenDelivery();
-
-  listenHomepage();
-
-  listenWebsiteSettings();
-
-  listenServices();
+        }
+    );
 
 }
 
 
-/* =========================================================
-   PRODUCTS
-   ========================================================= */
+window.saveServices = async function() {
 
-function listenProducts() {
-
-  onValue(ref(db, "products"), snapshot => {
-
-    const data = snapshot.val() || {};
-
-    products = Object.keys(data).map(key => ({
-
-      ...data[key],
-
-      firebaseKey: key,
-
-      id: data[key]?.id || key
-
-    }));
+    if (!db) return;
 
 
-    products.reverse();
+    try {
 
-    renderProducts();
+        await set(
+            ref(db, "services"),
+            {
 
-    updateDashboard();
+                buy:
+                    $("serviceBuy")?.value || "",
 
-  });
+                sell:
+                    $("serviceSell")?.value || "",
+
+                tracking:
+                    $("serviceTracking")?.value || "",
+
+                verification:
+                    $("serviceVerification")
+                        ?.value || "",
+
+                updatedAt:
+                    Date.now()
+
+            }
+        );
+
+
+        showToast(
+            "Services saved successfully."
+        );
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "Failed to save services:\n" +
+            error.message
+        );
+
+    }
+
+};
+
+
+// ============================================================
+// PRODUCTS
+// ============================================================
+
+function loadProducts() {
+
+    if (!db) return;
+
+
+    onValue(
+        ref(db, "products"),
+        snapshot => {
+
+            const data =
+                snapshot.val() || {};
+
+
+            allProducts =
+                Object.entries(data)
+                    .map(
+                        ([key, product]) => ({
+
+                            firebaseKey: key,
+
+                            ...product
+
+                        })
+                    );
+
+
+            renderProducts();
+
+            updateDashboard();
+
+        }
+    );
 
 }
 
+
+// ============================================================
+// RENDER PRODUCTS
+// ============================================================
 
 function renderProducts() {
 
-  const tbody = $("productsTable");
-
-  if (!tbody) return;
-
-
-  const search =
-    ($("productSearch")?.value || "")
-      .toLowerCase();
+    const tbody =
+        $("productsTable");
 
 
-  const filter =
-    $("productFilter")?.value || "all";
+    if (!tbody) return;
 
 
-  let list = products.filter(product => {
-
-    const name =
-      String(product.name || "")
-        .toLowerCase();
-
-    const brand =
-      String(product.brand || "")
-        .toLowerCase();
+    const search =
+        (
+            $("productSearch")
+                ?.value || ""
+        )
+            .toLowerCase()
+            .trim();
 
 
-    const matchesSearch =
-      name.includes(search) ||
-      brand.includes(search);
+    const filter =
+        $("productFilter")
+            ?.value || "all";
 
 
-    let matchesFilter = true;
+    const products =
+        allProducts.filter(product => {
+
+            const name =
+                String(
+                    product.name || ""
+                ).toLowerCase();
 
 
-    if (filter === "approved") {
+            const brand =
+                String(
+                    product.brand || ""
+                ).toLowerCase();
 
-      matchesFilter =
-        String(product.status || "")
-          .toLowerCase() === "approved";
+
+            const matchesSearch =
+                !search ||
+                name.includes(search) ||
+                brand.includes(search);
+
+
+            let matchesFilter = true;
+
+
+            if (filter !== "all") {
+
+                matchesFilter =
+                    String(
+                        product.status || ""
+                    ).toLowerCase() ===
+                    filter.toLowerCase();
+
+            }
+
+
+            return (
+                matchesSearch &&
+                matchesFilter
+            );
+
+        });
+
+
+    if (products.length === 0) {
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="10"
+                    style="
+                        text-align:center;
+                        padding:25px;
+                    "
+                >
+
+                    No products found.
+
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
 
     }
 
 
-    if (filter === "out") {
+    tbody.innerHTML =
+        products.map(product => {
 
-      matchesFilter =
-        product.outOfStock === true ||
-        Number(product.stock || 0) <= 0;
-
-    }
-
-
-    return matchesSearch && matchesFilter;
-
-  });
-
-
-  if (!list.length) {
-
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="7" class="muted">
-          No products found.
-        </td>
-      </tr>
-    `;
-
-    return;
-
-  }
+            const image =
+                product.image ||
+                product.imageUrl ||
+                (
+                    Array.isArray(
+                        product.images
+                    )
+                        ? product.images[0]
+                        : ""
+                );
 
 
-  tbody.innerHTML = list.map(product => {
+            return `
 
-    const image =
-      product.image ||
-      product.images?.[0] ||
-      "https://via.placeholder.com/80";
+                <tr>
 
+                    <td>
 
-    const stock =
-      Number(product.stock ?? 1);
+                        ${
+                            image
+                                ? `
+                                    <img
+                                        src="${escapeHTML(image)}"
+                                        style="
+                                            width:55px;
+                                            height:55px;
+                                            object-fit:cover;
+                                            border-radius:8px;
+                                        "
+                                    >
+                                  `
+                                : "—"
+                        }
 
-
-    const out =
-      product.outOfStock === true ||
-      stock <= 0;
-
-
-    const status =
-      product.status || "approved";
-
-
-    return `
-
-      <tr>
-
-        <td>
-
-          <div class="product-cell">
-
-            <img src="${escapeHtml(image)}">
-
-            <div>
-
-              <strong>
-                ${escapeHtml(product.name || "Unnamed")}
-              </strong>
-
-              <div class="muted">
-                ${escapeHtml(product.category || "Mobile")}
-              </div>
-
-            </div>
-
-          </div>
-
-        </td>
+                    </td>
 
 
-        <td>
-          ${escapeHtml(product.brand || "-")}
-        </td>
+                    <td>
+
+                        <strong>
+
+                            ${escapeHTML(
+                                product.name ||
+                                "Unnamed"
+                            )}
+
+                        </strong>
+
+                    </td>
 
 
-        <td>
-          ₹${Number(product.price || 0).toLocaleString("en-IN")}
-        </td>
+                    <td>
+
+                        ${escapeHTML(
+                            product.brand ||
+                            "—"
+                        )}
+
+                    </td>
 
 
-        <td>
-          ${escapeHtml(product.ram || product.highlights?.ram || "-")}
-          /
-          ${escapeHtml(product.rom || product.highlights?.rom || "-")}
-        </td>
+                    <td>
+
+                        ${escapeHTML(
+                            product.category ||
+                            "—"
+                        )}
+
+                    </td>
 
 
-        <td>
-          ${stock}
-        </td>
+                    <td>
+
+                        ${formatMoney(
+                            product.price
+                        )}
+
+                    </td>
 
 
-        <td>
+                    <td>
 
-          <span class="badge ${
-            status === "approved"
-              ? "badge-green"
-              : "badge-orange"
-          }">
+                        ${product.stock ?? 0}
 
-            ${escapeHtml(status)}
-
-          </span>
-
-        </td>
+                    </td>
 
 
-        <td>
+                    <td>
 
-          <button
-            class="small-btn"
-            onclick="editProduct('${product.firebaseKey}')">
+                        ${escapeHTML(
+                            product.status ||
+                            "approved"
+                        )}
 
-            Edit
-
-          </button>
+                    </td>
 
 
-          <button
-            class="danger-btn"
-            onclick="deleteProduct('${product.firebaseKey}')">
+                    <td>
 
-            Delete
+                        <button
+                            onclick="
+                                editProduct(
+                                    '${product.firebaseKey}'
+                                )
+                            "
+                        >
 
-          </button>
+                            Edit
 
-        </td>
+                        </button>
 
-      </tr>
 
-    `;
+                        <button
+                            onclick="
+                                deleteProduct(
+                                    '${product.firebaseKey}'
+                                )
+                            "
+                            style="color:red;"
+                        >
 
-  }).join("");
+                            Delete
+
+                        </button>
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
 
 }
 
 
-$("productSearch")?.addEventListener(
-  "input",
-  renderProducts
+// ============================================================
+// PRODUCT SEARCH
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        if ($("productSearch")) {
+
+            $("productSearch")
+                .addEventListener(
+                    "input",
+                    renderProducts
+                );
+
+        }
+
+
+        if ($("productFilter")) {
+
+            $("productFilter")
+                .addEventListener(
+                    "change",
+                    renderProducts
+                );
+
+        }
+
+    }
 );
 
 
-$("productFilter")?.addEventListener(
-  "change",
-  renderProducts
-);
+// ============================================================
+// OPEN PRODUCT MODAL
+// ============================================================
+
+window.openProductModal =
+    function(productKey = null) {
+
+        const modal =
+            $("productModal");
 
 
-/* =========================================================
-   PRODUCT MODAL
-   ========================================================= */
-
-window.openProductModal = function(product = null) {
-
-  $("productModal").classList.add("show");
+        if (!modal) return;
 
 
-  $("productForm").reset();
+        const form =
+            modal.querySelector("form");
 
 
-  $("editProductKey").value =
-    product?.firebaseKey || "";
+        if (form) {
+
+            form.reset();
+
+        }
 
 
-  $("productModalTitle").textContent =
-    product
-      ? "Edit Product"
-      : "Add New Product";
+        if ($("editProductKey")) {
+
+            $("editProductKey").value = "";
+
+        }
 
 
-  if (!product) return;
+        if ($("productModalTitle")) {
+
+            $("productModalTitle")
+                .textContent =
+                productKey
+                    ? "Edit Product"
+                    : "Add New Product";
+
+        }
 
 
-  $("pName").value =
-    product.name || "";
+        if (productKey) {
+
+            const product =
+                allProducts.find(
+                    item =>
+                        item.firebaseKey ===
+                        productKey
+                );
 
 
-  $("pBrand").value =
-    product.brand || "";
+            if (product) {
+
+                fillProductForm(product);
+
+            }
+
+        }
 
 
-  $("pCategory").value =
-    product.category || "Smartphone";
+        modal.style.display = "flex";
+
+    };
 
 
-  $("pPrice").value =
-    product.price || "";
+window.openAddProductModal =
+    window.openProductModal;
 
 
-  $("pMrp").value =
-    product.mrp || "";
+// ============================================================
+// CLOSE PRODUCT MODAL
+// ============================================================
+
+window.closeProductModal =
+    function() {
+
+        const modal =
+            $("productModal");
 
 
-  $("pStock").value =
-    product.stock ?? 1;
+        if (modal) {
+
+            modal.style.display =
+                "none";
+
+        }
+
+    };
 
 
-  $("pRam").value =
-    product.ram ||
-    product.highlights?.ram ||
-    "";
+// ============================================================
+// FILL PRODUCT FORM
+// ============================================================
+
+function fillProductForm(product) {
+
+    if ($("editProductKey"))
+        $("editProductKey").value =
+            product.firebaseKey || "";
 
 
-  $("pRom").value =
-    product.rom ||
-    product.highlights?.rom ||
-    "";
+    if ($("pName"))
+        $("pName").value =
+            product.name || "";
 
 
-  $("pProcessor").value =
-    product.processor || "";
+    if ($("pBrand"))
+        $("pBrand").value =
+            product.brand || "";
 
 
-  $("pDisplay").value =
-    product.display || "";
+    if ($("pCategory"))
+        $("pCategory").value =
+            product.category || "";
 
 
-  $("pCamera").value =
-    product.camera || "";
+    if ($("pPrice"))
+        $("pPrice").value =
+            product.price || "";
 
 
-  $("pBattery").value =
-    product.battery || "";
+    if ($("pMrp"))
+        $("pMrp").value =
+            product.mrp || "";
 
 
-  $("pCondition").value =
-    product.condition || "New";
+    if ($("pStock"))
+        $("pStock").value =
+            product.stock || 0;
 
 
-  $("pQuality").value =
-    product.quality || "Verified";
+    if ($("pRam"))
+        $("pRam").value =
+            product.ram ||
+            product.RAM ||
+            "";
 
 
-  $("pWarranty").value =
-    product.warranty || "";
+    if ($("pRom"))
+        $("pRom").value =
+            product.rom ||
+            product.ROM ||
+            product.storage ||
+            "";
 
 
-  $("pImage").value =
-    product.image ||
-    product.images?.[0] ||
-    "";
+    if ($("pProcessor"))
+        $("pProcessor").value =
+            product.processor || "";
 
 
-  $("pHighlights").value =
-    Array.isArray(product.highlights)
-      ? product.highlights.join(", ")
-      : product.highlightsText || "";
-
-};
+    if ($("pDisplay"))
+        $("pDisplay").value =
+            product.display || "";
 
 
-window.closeProductModal = function() {
-
-  $("productModal").classList.remove("show");
-
-};
+    if ($("pCamera"))
+        $("pCamera").value =
+            product.camera || "";
 
 
-$("productForm").addEventListener(
-  "submit",
-  async e => {
-
-    e.preventDefault();
+    if ($("pBattery"))
+        $("pBattery").value =
+            product.battery || "";
 
 
-    const editKey =
-      $("editProductKey").value;
+    if ($("pCondition"))
+        $("pCondition").value =
+            product.condition || "";
 
 
-    const highlightsText =
-      $("pHighlights").value.trim();
+    if ($("pQuality"))
+        $("pQuality").value =
+            product.quality || "";
+
+
+    if ($("pWarranty"))
+        $("pWarranty").value =
+            product.warranty || "";
+
+
+    if ($("pImage"))
+        $("pImage").value =
+            product.image ||
+            product.imageUrl ||
+            (
+                Array.isArray(
+                    product.images
+                )
+                    ? product.images[0]
+                    : ""
+            );
+
+
+    if ($("pHighlights"))
+        $("pHighlights").value =
+            typeof product.highlights ===
+            "string"
+                ? product.highlights
+                : "";
+
+}
+
+
+// ============================================================
+// SAVE PRODUCT
+// ============================================================
+
+async function saveProduct(event) {
+
+    event.preventDefault();
+
+
+    if (!db) {
+
+        alert(
+            "Firebase is not connected."
+        );
+
+        return;
+
+    }
+
+
+    const productKey =
+        $("editProductKey")
+            ?.value || "";
+
+
+    const name =
+        $("pName")
+            ?.value
+            .trim() || "";
+
+
+    const price =
+        Number(
+            $("pPrice")
+                ?.value || 0
+        );
+
+
+    const mrp =
+        Number(
+            $("pMrp")
+                ?.value || 0
+        );
+
+
+    const stock =
+        Number(
+            $("pStock")
+                ?.value || 0
+        );
+
+
+    if (!name) {
+
+        alert(
+            "Please enter product name."
+        );
+
+        return;
+
+    }
+
+
+    if (price <= 0) {
+
+        alert(
+            "Please enter product price."
+        );
+
+        return;
+
+    }
 
 
     const productData = {
 
-      name: $("pName").value.trim(),
+        name:
 
-      brand: $("pBrand").value.trim(),
+            name,
 
-      category: $("pCategory").value.trim(),
 
-      price: Number($("pPrice").value || 0),
+        brand:
 
-      mrp: Number($("pMrp").value || 0),
+            $("pBrand")
+                ?.value
+                .trim() || "",
 
-      stock: Number($("pStock").value || 0),
 
-      outOfStock:
-        Number($("pStock").value || 0) <= 0,
+        category:
 
-      ram: $("pRam").value.trim(),
+            $("pCategory")
+                ?.value
+                .trim() || "",
 
-      rom: $("pRom").value.trim(),
 
-      processor:
-        $("pProcessor").value.trim(),
+        price:
 
-      display:
-        $("pDisplay").value.trim(),
+            price,
 
-      camera:
-        $("pCamera").value.trim(),
 
-      battery:
-        $("pBattery").value.trim(),
+        mrp:
 
-      condition:
-        $("pCondition").value,
+            mrp,
 
-      quality:
-        $("pQuality").value,
 
-      warranty:
-        $("pWarranty").value.trim(),
+        stock:
 
-      image:
-        $("pImage").value.trim(),
+            stock,
 
-      images:
-        $("pImage").value.trim()
-          ? [$("pImage").value.trim()]
-          : [],
 
-      highlightsText,
+        ram:
 
-      highlights: {
+            $("pRam")
+                ?.value
+                .trim() || "",
 
-        ram: $("pRam").value.trim(),
 
-        rom: $("pRom").value.trim(),
+        rom:
+
+            $("pRom")
+                ?.value
+                .trim() || "",
+
 
         processor:
-          $("pProcessor").value.trim(),
+
+            $("pProcessor")
+                ?.value
+                .trim() || "",
+
 
         display:
-          $("pDisplay").value.trim(),
+
+            $("pDisplay")
+                ?.value
+                .trim() || "",
+
 
         camera:
-          $("pCamera").value.trim(),
+
+            $("pCamera")
+                ?.value
+                .trim() || "",
+
 
         battery:
-          $("pBattery").value.trim(),
 
-        text: highlightsText
+            $("pBattery")
+                ?.value
+                .trim() || "",
 
-      },
 
-      status: "approved"
+        condition:
+
+            $("pCondition")
+                ?.value
+                .trim() || "",
+
+
+        quality:
+
+            $("pQuality")
+                ?.value
+                .trim() || "",
+
+
+        warranty:
+
+            $("pWarranty")
+                ?.value
+                .trim() || "",
+
+
+        image:
+
+            $("pImage")
+                ?.value
+                .trim() || "",
+
+
+        highlights:
+
+            $("pHighlights")
+                ?.value
+                .trim() || "",
+
+
+        status:
+
+            "approved",
+
+
+        updatedAt:
+
+            Date.now()
 
     };
 
 
     try {
 
-      if (editKey) {
+        if (productKey) {
 
-        await update(
-          ref(db, `products/${editKey}`),
-          productData
-        );
-
-        toast("Product updated successfully.");
-
-      } else {
-
-        const newRef =
-          push(ref(db, "products"));
+            await update(
+                ref(
+                    db,
+                    `products/${productKey}`
+                ),
+                productData
+            );
 
 
-        productData.id =
-          "PROD-" +
-          Date.now().toString().slice(-8);
+            showToast(
+                "Product updated successfully."
+            );
+
+        } else {
+
+            productData.createdAt =
+                Date.now();
 
 
-        productData.createdAt =
-          Date.now();
+            productData.type =
+                "admin";
 
 
-        productData.type =
-          "admin";
+            const newProduct =
+                push(
+                    ref(
+                        db,
+                        "products"
+                    )
+                );
 
 
-        await set(
-          newRef,
-          productData
-        );
+            await set(
+                newProduct,
+                productData
+            );
 
 
-        toast("New product added.");
+            showToast(
+                "Product added successfully."
+            );
 
-      }
+        }
 
 
-      closeProductModal();
+        window.closeProductModal();
+
 
     } catch (error) {
 
-      alert(
-        "Product save failed: " +
-        error.message
-      );
+        console.error(error);
+
+        alert(
+            "Product save failed:\n" +
+            error.message
+        );
 
     }
 
-  }
+}
+
+
+// ============================================================
+// PRODUCT FORM
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        const form =
+            $("productForm") ||
+            $("productModal")
+                ?.querySelector("form");
+
+
+        if (form) {
+
+            form.addEventListener(
+                "submit",
+                saveProduct
+            );
+
+        }
+
+    }
 );
 
 
-/* =========================================================
-   EDIT / DELETE PRODUCT
-   ========================================================= */
+// ============================================================
+// EDIT PRODUCT
+// ============================================================
 
-window.editProduct = function(key) {
+window.editProduct =
+    function(productKey) {
 
-  const product =
-    products.find(
-      p => p.firebaseKey === key
+        window.openProductModal(
+            productKey
+        );
+
+    };
+
+
+// ============================================================
+// DELETE PRODUCT
+// ============================================================
+
+window.deleteProduct =
+    async function(productKey) {
+
+        if (!db) return;
+
+
+        const product =
+            allProducts.find(
+                item =>
+                    item.firebaseKey ===
+                    productKey
+            );
+
+
+        if (!product) return;
+
+
+        if (!confirm(
+            `Delete "${
+                product.name ||
+                "this product"
+            }"?`
+        )) {
+
+            return;
+
+        }
+
+
+        try {
+
+            await remove(
+                ref(
+                    db,
+                    `products/${productKey}`
+                )
+            );
+
+
+            showToast(
+                "Product deleted."
+            );
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Delete failed:\n" +
+                error.message
+            );
+
+        }
+
+    };
+
+
+// ============================================================
+// ORDERS
+// ============================================================
+
+function loadOrders() {
+
+    if (!db) return;
+
+
+    onValue(
+        ref(db, "orders"),
+        snapshot => {
+
+            const data =
+                snapshot.val() || {};
+
+
+            allOrders =
+                Object.entries(data)
+                    .map(
+                        ([key, order]) => ({
+
+                            firebaseKey: key,
+
+                            ...order
+
+                        })
+                    );
+
+
+            renderOrders();
+
+            updateCustomers();
+
+            updateDashboard();
+
+        }
     );
 
-
-  if (product) {
-
-    openProductModal(product);
-
-  }
-
-};
-
-
-window.deleteProduct = async function(key) {
-
-  if (!confirm(
-    "Delete this product permanently?"
-  )) return;
-
-
-  try {
-
-    await remove(
-      ref(db, `products/${key}`)
-    );
-
-    toast("Product deleted.");
-
-  } catch (error) {
-
-    alert(
-      "Delete failed: " +
-      error.message
-    );
-
-  }
-
-};
-
-
-/* =========================================================
-   ORDERS
-   ========================================================= */
-
-function listenOrders() {
-
-  onValue(ref(db, "orders"), snapshot => {
-
-    const data = snapshot.val() || {};
-
-    orders =
-      Object.keys(data).map(key => ({
-
-        ...data[key],
-
-        firebaseKey: key
-
-      }));
-
-
-    orders.reverse();
-
-    renderOrders();
-
-    renderRecentOrders();
-
-    buildCustomers();
-
-    updateDashboard();
-
-  });
-
 }
 
 
-function getCustomerName(order) {
-
-  return (
-    order.customerName ||
-    order.name ||
-    order.customer?.name ||
-    order.deliveryAddress?.name ||
-    "Customer"
-  );
-
-}
-
-
-function getCustomerPhone(order) {
-
-  return (
-    order.mobile ||
-    order.phone ||
-    order.customer?.mobile ||
-    order.customer?.phone ||
-    order.contact ||
-    "-"
-  );
-
-}
-
-
-function getCustomerAddress(order) {
-
-  return (
-    order.address ||
-    order.customer?.address ||
-    order.deliveryAddress?.address ||
-    "-"
-  );
-
-}
-
-
-function getOrderTotal(order) {
-
-  return Number(
-    order.total ||
-    order.grandTotal ||
-    order.amount ||
-    order.totalAmount ||
-    0
-  );
-
-}
-
+// ============================================================
+// RENDER ORDERS
+// ============================================================
 
 function renderOrders() {
 
-  const tbody = $("ordersTable");
-
-  if (!tbody) return;
-
-
-  if (!orders.length) {
-
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="muted">
-          No orders found.
-        </td>
-      </tr>
-    `;
-
-    return;
-
-  }
+    const tbody =
+        $("ordersTable");
 
 
-  tbody.innerHTML =
-    orders.map(order => {
-
-      const status =
-        order.status || "Pending";
+    if (!tbody) return;
 
 
-      return `
+    if (allOrders.length === 0) {
 
-        <tr>
+        tbody.innerHTML = `
 
-          <td>
-            <strong>
-              ${escapeHtml(
-                order.firebaseKey
-              )}
-            </strong>
-          </td>
+            <tr>
 
+                <td
+                    colspan="6"
+                    style="
+                        text-align:center;
+                        padding:25px;
+                    "
+                >
 
-          <td>
-            ${escapeHtml(
-              getCustomerName(order)
-            )}
-          </td>
+                    No orders found.
 
+                </td>
 
-          <td>
-            ${escapeHtml(
-              getCustomerPhone(order)
-            )}
-          </td>
+            </tr>
 
+        `;
 
-          <td>
-            ₹${getOrderTotal(order)
-              .toLocaleString("en-IN")}
-          </td>
+        return;
+
+    }
 
 
-          <td>
+    tbody.innerHTML =
+        allOrders
+            .slice()
+            .reverse()
+            .map(order => {
 
-            <span class="badge badge-blue">
-              ${escapeHtml(status)}
-            </span>
+                const orderId =
+                    order.orderId ||
+                    order.id ||
+                    order.firebaseKey;
 
-          </td>
+
+                const customer =
+                    order.customerName ||
+                    order.name ||
+                    order.customer?.name ||
+                    "Customer";
 
 
-          <td>
+                const mobile =
+                    order.mobile ||
+                    order.phone ||
+                    order.customerPhone ||
+                    order.customer?.phone ||
+                    "—";
 
-            <select
-              onchange="updateOrderStatus(
-                '${order.firebaseKey}',
-                this.value
-              )">
 
-              ${orderStatusOptions(status)}
+                const total =
+                    order.totalAmount ??
+                    order.total ??
+                    order.amount ??
+                    order.productPrice ??
+                    0;
 
-            </select>
 
-          </td>
+                const status =
+                    order.status ||
+                    "Pending";
 
-        </tr>
 
-      `;
+                return `
 
-    }).join("");
+                    <tr>
+
+                        <td>
+
+                            ${escapeHTML(
+                                orderId
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHTML(
+                                customer
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHTML(
+                                mobile
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${formatMoney(
+                                total
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            <select
+                                onchange="
+                                    updateOrderStatus(
+                                        '${order.firebaseKey}',
+                                        this.value
+                                    )
+                                "
+                            >
+
+                                ${
+                                    orderStatusOptions(
+                                        status
+                                    )
+                                }
+
+                            </select>
+
+                        </td>
+
+
+                        <td>
+
+                            <button
+                                onclick="
+                                    viewOrder(
+                                        '${order.firebaseKey}'
+                                    )
+                                "
+                            >
+
+                                View
+
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                `;
+
+            })
+            .join("");
 
 }
 
+
+// ============================================================
+// ORDER STATUS OPTIONS
+// ============================================================
 
 function orderStatusOptions(current) {
 
-  const options = [
+    const statuses = [
 
-    "Pending",
+        "Pending",
 
-    "Confirmed",
+        "Confirmed",
 
-    "Processing",
+        "Processing",
 
-    "Shipped",
+        "Packed",
 
-    "Out for Delivery",
+        "Shipped",
 
-    "Delivered",
+        "Out for Delivery",
 
-    "Cancelled"
+        "Delivered",
 
-  ];
+        "Cancelled"
+
+    ];
 
 
-  return options.map(status => `
+    return statuses
+        .map(status => `
 
-    <option
-      value="${status}"
-      ${status.toLowerCase() ===
-        String(current).toLowerCase()
-        ? "selected"
-        : ""}>
+            <option
+                value="${escapeHTML(status)}"
+                ${
+                    String(status)
+                        .toLowerCase() ===
+                    String(current)
+                        .toLowerCase()
+                        ? "selected"
+                        : ""
+                }
+            >
 
-      ${status}
+                ${escapeHTML(status)}
 
-    </option>
+            </option>
 
-  `).join("");
+        `)
+        .join("");
 
 }
 
+
+// ============================================================
+// UPDATE ORDER STATUS
+// ============================================================
 
 window.updateOrderStatus =
-  async function(key, status) {
+    async function(
+        orderKey,
+        newStatus
+    ) {
 
-    try {
+        if (!db) return;
 
-      await update(
-        ref(db, `orders/${key}`),
-        {
-          status,
-          statusUpdatedAt: Date.now()
+
+        try {
+
+            await update(
+                ref(
+                    db,
+                    `orders/${orderKey}`
+                ),
+                {
+
+                    status:
+                        newStatus,
+
+                    updatedAt:
+                        Date.now()
+
+                }
+            );
+
+
+            const timelineRef =
+                push(
+                    ref(
+                        db,
+                        `orders/${orderKey}/trackingTimeline`
+                    )
+                );
+
+
+            await set(
+                timelineRef,
+                {
+
+                    status:
+                        newStatus,
+
+                    label:
+                        newStatus,
+
+                    timestamp:
+                        Date.now(),
+
+                    note:
+                        `Order status changed to ${newStatus}`
+
+                }
+            );
+
+
+            showToast(
+                "Order status updated."
+            );
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Order update failed:\n" +
+                error.message
+            );
+
         }
-      );
 
+    };
 
-      toast(
-        `Order status changed to ${status}.`
-      );
 
-    } catch (error) {
+// ============================================================
+// VIEW ORDER
+// ============================================================
 
-      alert(
-        "Status update failed: " +
-        error.message
-      );
+window.viewOrder =
+    function(orderKey) {
 
-    }
+        const order =
+            allOrders.find(
+                item =>
+                    item.firebaseKey ===
+                    orderKey
+            );
 
-  };
 
+        if (!order) return;
 
-function renderRecentOrders() {
 
-  const tbody =
-    $("recentOrders");
+        const items =
+            order.items ||
+            order.products ||
+            [];
 
 
-  if (!tbody) return;
+        let itemText = "";
 
 
-  tbody.innerHTML =
-    orders.slice(0, 6).map(order => `
+        if (Array.isArray(items)) {
 
-      <tr>
+            itemText =
+                items
+                    .map(item => {
 
-        <td>
-          ${escapeHtml(order.firebaseKey)}
-        </td>
+                        return (
+                            (item.name ||
+                                item.title ||
+                                "Product") +
+                            " × " +
+                            (item.quantity || 1)
+                        );
 
-        <td>
-          ${escapeHtml(getCustomerName(order))}
-        </td>
+                    })
+                    .join("\n");
 
-        <td>
-          ₹${getOrderTotal(order)
-            .toLocaleString("en-IN")}
-        </td>
+        } else if (
+            typeof items === "object"
+        ) {
 
-        <td>
-          <span class="badge badge-blue">
-            ${escapeHtml(
-              order.status || "Pending"
-            )}
-          </span>
-        </td>
+            itemText =
+                Object.values(items)
+                    .map(item => {
 
-        <td>
+                        return (
+                            (item.name ||
+                                item.title ||
+                                "Product") +
+                            " × " +
+                            (item.quantity || 1)
+                        );
 
-          <button
-            class="small-btn"
-            onclick="openSection('orders')">
+                    })
+                    .join("\n");
 
-            Open
+        }
 
-          </button>
 
-        </td>
+        const message =
 
-      </tr>
+            "Order ID: " +
+            (
+                order.orderId ||
+                order.id ||
+                order.firebaseKey
+            ) +
 
-    `).join("");
+            "\n\nCustomer: " +
+            (
+                order.customerName ||
+                order.name ||
+                "—"
+            ) +
 
-}
+            "\n\nMobile: " +
+            (
+                order.mobile ||
+                order.phone ||
+                order.customerPhone ||
+                "—"
+            ) +
 
+            "\n\nAddress: " +
+            (
+                order.address ||
+                order.deliveryAddress ||
+                "—"
+            ) +
 
-/* =========================================================
-   CUSTOMERS
-   ========================================================= */
+            "\n\nTotal: " +
+            formatMoney(
+                order.totalAmount ||
+                order.total ||
+                order.amount ||
+                order.productPrice
+            ) +
 
-function buildCustomers() {
+            "\n\nStatus: " +
+            (
+                order.status ||
+                "Pending"
+            ) +
 
-  const map = {};
+            "\n\nItems:\n" +
+            (
+                itemText ||
+                "No item details"
+            );
 
 
-  orders.forEach(order => {
+        alert(message);
 
-    const email =
-      order.email ||
-      order.customer?.email ||
-      getCustomerPhone(order) ||
-      "unknown";
+    };
 
 
-    if (!map[email]) {
+// ============================================================
+// SELL REQUESTS
+// ============================================================
 
-      map[email] = {
+function loadSellerRequests() {
 
-        name:
-          getCustomerName(order),
+    if (!db) return;
 
-        email:
-          order.email ||
-          order.customer?.email ||
-          "-",
 
-        mobile:
-          getCustomerPhone(order),
+    onValue(
+        ref(db, "sellerRequests"),
+        snapshot => {
 
-        address:
-          getCustomerAddress(order),
+            const data =
+                snapshot.val() || {};
 
-        orders: 0
 
-      };
+            allSellerRequests =
+                Object.entries(data)
+                    .map(
+                        ([key, request]) => ({
 
-    }
+                            firebaseKey: key,
 
+                            ...request
 
-    map[email].orders++;
+                        })
+                    );
 
-  });
 
+            renderSellerRequests();
 
-  customers =
-    Object.values(map);
+            updateDashboard();
 
-
-  renderCustomers();
-
-}
-
-
-function renderCustomers() {
-
-  const tbody =
-    $("customersTable");
-
-
-  if (!tbody) return;
-
-
-  tbody.innerHTML =
-    customers.map(customer => `
-
-      <tr>
-
-        <td>
-          ${escapeHtml(customer.name)}
-        </td>
-
-        <td>
-          ${escapeHtml(customer.email)}
-        </td>
-
-        <td>
-          ${escapeHtml(customer.mobile)}
-        </td>
-
-        <td>
-          ${escapeHtml(customer.address)}
-        </td>
-
-        <td>
-          ${customer.orders}
-        </td>
-
-      </tr>
-
-    `).join("");
-
-}
-
-
-/* =========================================================
-   SELL REQUESTS
-   ========================================================= */
-
-function listenSellRequests() {
-
-  onValue(
-    ref(db, "sellerRequests"),
-    snapshot => {
-
-      const data =
-        snapshot.val() || {};
-
-
-      sellRequests =
-        Object.keys(data).map(key => ({
-
-          ...data[key],
-
-          firebaseKey: key
-
-        }));
-
-
-      sellRequests.reverse();
-
-      renderSellRequests();
-
-      updateDashboard();
-
-    }
-  );
-
-}
-
-
-function renderSellRequests() {
-
-  const tbody =
-    $("sellsTable");
-
-
-  if (!tbody) return;
-
-
-  if (!sellRequests.length) {
-
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="muted">
-          No sell requests found.
-        </td>
-      </tr>
-    `;
-
-    return;
-
-  }
-
-
-  tbody.innerHTML =
-    sellRequests.map(req => `
-
-      <tr>
-
-        <td>
-          <strong>
-            ${escapeHtml(
-              req.sellerName || "Seller"
-            )}
-          </strong>
-        </td>
-
-
-        <td>
-          ${escapeHtml(
-            req.name || req.model || "-"
-          )}
-        </td>
-
-
-        <td>
-          ₹${Number(
-            req.price || 0
-          ).toLocaleString("en-IN")}
-        </td>
-
-
-        <td>
-          ${escapeHtml(
-            req.contact || "-"
-          )}
-        </td>
-
-
-        <td>
-
-          <span class="badge ${
-            String(req.status || "")
-              .toLowerCase()
-              .includes("reject")
-              ? "badge-red"
-              : String(req.status || "")
-                  .toLowerCase()
-                  .includes("accept")
-                ? "badge-green"
-                : "badge-orange"
-          }">
-
-            ${escapeHtml(
-              req.status || "Pending"
-            )}
-
-          </span>
-
-        </td>
-
-
-        <td>
-
-          <button
-            class="small-btn"
-            onclick="openSellRequest(
-              '${req.firebaseKey}'
-            )">
-
-            Review
-
-          </button>
-
-        </td>
-
-      </tr>
-
-    `).join("");
-
-}
-
-
-window.openSellRequest = function(key) {
-
-  currentSell =
-    sellRequests.find(
-      r => r.firebaseKey === key
+        }
     );
 
-
-  if (!currentSell) return;
-
-
-  $("sellModalSubtitle").textContent =
-    currentSell.name || "Sell Request";
+}
 
 
-  $("sellDetails").innerHTML = `
+// ============================================================
+// RENDER SELL REQUESTS
+// ============================================================
 
-    <div class="field">
+function renderSellerRequests() {
 
-      <label>Seller Name</label>
-
-      <input
-        value="${escapeHtml(
-          currentSell.sellerName || ""
-        )}"
-        readonly>
-
-    </div>
+    const tbody =
+        $("sellsTable");
 
 
-    <div class="field">
-
-      <label>Device</label>
-
-      <input
-        value="${escapeHtml(
-          currentSell.name || ""
-        )}"
-        readonly>
-
-    </div>
+    if (!tbody) return;
 
 
-    <div class="field">
+    if (
+        allSellerRequests.length === 0
+    ) {
 
-      <label>Expected Price</label>
+        tbody.innerHTML = `
 
-      <input
-        value="₹${Number(
-          currentSell.price || 0
-        ).toLocaleString("en-IN")}"
-        readonly>
+            <tr>
 
-    </div>
+                <td
+                    colspan="6"
+                    style="
+                        text-align:center;
+                        padding:25px;
+                    "
+                >
 
+                    No sell requests found.
 
-    <div class="field">
+                </td>
 
-      <label>Contact</label>
+            </tr>
 
-      <input
-        value="${escapeHtml(
-          currentSell.contact || ""
-        )}"
-        readonly>
+        `;
 
-    </div>
+        return;
 
-
-    <div class="field">
-
-      <label>Address</label>
-
-      <textarea readonly>${escapeHtml(
-        currentSell.address || ""
-      )}</textarea>
-
-    </div>
-
-  `;
+    }
 
 
-  $("sellModal").classList.add("show");
+    tbody.innerHTML =
+        allSellerRequests
+            .slice()
+            .reverse()
+            .map(request => {
 
-};
-
-
-window.closeSellModal = function() {
-
-  $("sellModal").classList.remove("show");
-
-  currentSell = null;
-
-};
+                const seller =
+                    request.sellerName ||
+                    request.name ||
+                    "Seller";
 
 
-/* =========================================================
-   SELL ACCEPT + LAUNCH
-   ========================================================= */
+                const device =
+                    request.device ||
+                    request.model ||
+                    request.name ||
+                    "Device";
+
+
+                const price =
+                    request.price ||
+                    request.expectedPrice ||
+                    0;
+
+
+                const status =
+                    request.status ||
+                    "Pending Verification";
+
+
+                return `
+
+                    <tr>
+
+                        <td>
+
+                            ${escapeHTML(
+                                seller
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHTML(
+                                device
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHTML(
+                                request.contact ||
+                                request.mobile ||
+                                "—"
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${formatMoney(
+                                price
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHTML(
+                                status
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            <button
+                                onclick="
+                                    openSellRequest(
+                                        '${request.firebaseKey}'
+                                    )
+                                "
+                            >
+
+                                View
+
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                `;
+
+            })
+            .join("");
+
+}
+
+
+// ============================================================
+// OPEN SELL REQUEST
+// ============================================================
+
+window.openSellRequest =
+    function(key) {
+
+        const request =
+            allSellerRequests.find(
+                item =>
+                    item.firebaseKey ===
+                    key
+            );
+
+
+        if (!request) return;
+
+
+        currentSellRequest =
+            request;
+
+
+        if ($("sellDetails")) {
+
+            $("sellDetails").innerHTML = `
+
+                <div>
+
+                    <strong>Seller:</strong>
+
+                    ${escapeHTML(
+                        request.sellerName ||
+                        request.name ||
+                        "—"
+                    )}
+
+                </div>
+
+
+                <div>
+
+                    <strong>Device:</strong>
+
+                    ${escapeHTML(
+                        request.device ||
+                        request.model ||
+                        request.name ||
+                        "—"
+                    )}
+
+                </div>
+
+
+                <div>
+
+                    <strong>Mobile:</strong>
+
+                    ${escapeHTML(
+                        request.contact ||
+                        request.mobile ||
+                        "—"
+                    )}
+
+                </div>
+
+
+                <div>
+
+                    <strong>Email:</strong>
+
+                    ${escapeHTML(
+                        request.email ||
+                        request.userEmail ||
+                        "—"
+                    )}
+
+                </div>
+
+
+                <div>
+
+                    <strong>Expected Price:</strong>
+
+                    ${formatMoney(
+                        request.price ||
+                        request.expectedPrice
+                    )}
+
+                </div>
+
+
+                <div>
+
+                    <strong>Address:</strong>
+
+                    ${escapeHTML(
+                        request.address ||
+                        "—"
+                    )}
+
+                </div>
+
+
+                <div>
+
+                    <strong>Status:</strong>
+
+                    ${escapeHTML(
+                        request.status ||
+                        "Pending"
+                    )}
+
+                </div>
+
+
+                ${
+                    Array.isArray(
+                        request.images
+                    )
+                        ? request.images
+                            .map(
+                                img => `
+
+                                    <img
+                                        src="${escapeHTML(img)}"
+                                        style="
+                                            width:100px;
+                                            height:100px;
+                                            object-fit:cover;
+                                            margin:5px;
+                                            border-radius:8px;
+                                        "
+                                    >
+
+                                `
+                            )
+                            .join("")
+                        : ""
+                }
+
+            `;
+
+        }
+
+
+        if ($("sellModal")) {
+
+            $("sellModal").style.display =
+                "flex";
+
+        }
+
+    };
+
+
+// ============================================================
+// CLOSE SELL MODAL
+// ============================================================
+
+window.closeSellModal =
+    function() {
+
+        if ($("sellModal")) {
+
+            $("sellModal").style.display =
+                "none";
+
+        }
+
+
+        currentSellRequest =
+            null;
+
+    };
+
+
+// ============================================================
+// ACCEPT SELL REQUEST
+// ============================================================
 
 window.acceptCurrentSell =
-  async function() {
+    async function() {
 
-    if (!currentSell) return;
+        if (
+            !db ||
+            !currentSellRequest
+        ) {
 
-
-    const key =
-      currentSell.firebaseKey;
-
-
-    try {
-
-      /*
-       * 1. Accept seller request
-       */
-
-      await update(
-        ref(db, `sellerRequests/${key}`),
-        {
-
-          status: "launched",
-
-          accepted: true,
-
-          launched: true,
-
-          approvedAt: Date.now(),
-
-          launchedAt: Date.now()
+            return;
 
         }
-      );
 
 
-      /*
-       * 2. Launch the product
-       */
+        const request =
+            currentSellRequest;
 
-      await update(
-        ref(db, `products/${key}`),
-        {
 
-          status: "approved",
+        try {
 
-          published: true,
+            const key =
+                request.firebaseKey;
 
-          launched: true,
 
-          launchedAt: Date.now()
+            await update(
+                ref(
+                    db,
+                    `sellerRequests/${key}`
+                ),
+                {
+
+                    status:
+                        "Accepted",
+
+                    acceptedAt:
+                        Date.now()
+
+                }
+            );
+
+
+            const product = {
+
+                name:
+                    request.device ||
+                    request.model ||
+                    request.name ||
+                    "Used Device",
+
+                brand:
+                    request.brand ||
+                    "",
+
+                category:
+                    request.category ||
+                    "Used Mobile",
+
+                price:
+                    Number(
+                        request.price ||
+                        request.expectedPrice ||
+                        0
+                    ),
+
+                mrp:
+                    Number(
+                        request.mrp ||
+                        request.price ||
+                        0
+                    ),
+
+                stock:
+                    1,
+
+                image:
+                    Array.isArray(
+                        request.images
+                    )
+                        ? request.images[0] ||
+                          ""
+                        : request.image ||
+                          "",
+
+                images:
+                    request.images ||
+                    [],
+
+                ram:
+                    request.ram ||
+                    "",
+
+                rom:
+                    request.rom ||
+                    "",
+
+                condition:
+                    request.condition ||
+                    "Used",
+
+                quality:
+                    request.quality ||
+                    "Verification Pending",
+
+                sellerRequestId:
+                    key,
+
+                status:
+                    "approved",
+
+                type:
+                    "seller",
+
+                createdAt:
+                    Date.now()
+
+            };
+
+
+            const productRef =
+                push(
+                    ref(
+                        db,
+                        "products"
+                    )
+                );
+
+
+            await set(
+                productRef,
+                product
+            );
+
+
+            await push(
+                ref(
+                    db,
+                    "approvedSellers"
+                ),
+                {
+
+                    sellerName:
+                        request.sellerName ||
+                        request.name ||
+                        "",
+
+                    mobile:
+                        request.contact ||
+                        request.mobile ||
+                        "",
+
+                    email:
+                        request.email ||
+                        request.userEmail ||
+                        "",
+
+                    device:
+                        product.name,
+
+                    agreedPrice:
+                        product.price,
+
+                    productId:
+                        productRef.key,
+
+                    status:
+                        "active",
+
+                    createdAt:
+                        Date.now()
+
+                }
+            );
+
+
+            showToast(
+                "Sell request accepted and product added."
+            );
+
+
+            window.closeSellModal();
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Accept failed:\n" +
+                error.message
+            );
 
         }
-      );
+
+    };
 
 
-      /*
-       * 3. Create approved seller
-       */
-
-      const approvedSeller = {
-
-        id:
-          "SELLER-" +
-          Date.now().toString().slice(-8),
-
-        name:
-          currentSell.sellerName || "",
-
-        mobile:
-          currentSell.contact || "",
-
-        email:
-          currentSell.userEmail ||
-          currentSell.email ||
-          "",
-
-        deviceSold:
-          currentSell.name || "",
-
-        agreedPrice:
-          currentSell.price || 0,
-
-        status:
-          "active",
-
-        approvedDate:
-          new Date().toLocaleDateString(),
-
-        timestamp:
-          Date.now()
-
-      };
-
-
-      await push(
-        ref(db, "approvedSellers"),
-        approvedSeller
-      );
-
-
-      toast(
-        "Sell request accepted and product launched."
-      );
-
-
-      closeSellModal();
-
-    } catch (error) {
-
-      alert(
-        "Accept & Launch failed: " +
-        error.message
-      );
-
-    }
-
-  };
-
-
-/* =========================================================
-   SELL REJECT
-   ========================================================= */
+// ============================================================
+// REJECT SELL REQUEST
+// ============================================================
 
 window.rejectCurrentSell =
-  async function() {
+    async function() {
 
-    if (!currentSell) return;
+        if (
+            !db ||
+            !currentSellRequest
+        ) {
 
-
-    if (!confirm(
-      "Reject this sell request?"
-    )) return;
-
-
-    const key =
-      currentSell.firebaseKey;
-
-
-    try {
-
-      await update(
-        ref(db, `sellerRequests/${key}`),
-        {
-
-          status: "Rejected",
-
-          rejectedAt: Date.now()
+            return;
 
         }
-      );
 
 
-      await update(
-        ref(db, `products/${key}`),
-        {
+        const key =
+            currentSellRequest.firebaseKey;
 
-          status: "rejected",
 
-          published: false
+        if (
+            !confirm(
+                "Reject this sell request?"
+            )
+        ) {
+
+            return;
 
         }
-      ).catch(() => {});
 
 
-      toast(
-        "Sell request rejected."
-      );
+        try {
+
+            await update(
+                ref(
+                    db,
+                    `sellerRequests/${key}`
+                ),
+                {
+
+                    status:
+                        "Rejected",
+
+                    rejectedAt:
+                        Date.now()
+
+                }
+            );
 
 
-      closeSellModal();
-
-    } catch (error) {
-
-      alert(
-        "Reject failed: " +
-        error.message
-      );
-
-    }
-
-  };
+            showToast(
+                "Sell request rejected."
+            );
 
 
-/* =========================================================
-   TRACKING
-   ========================================================= */
-
-window.addTrackingUpdate =
-  async function() {
-
-    const orderId =
-      $("trackingOrderId").value.trim();
+            window.closeSellModal();
 
 
-    const status =
-      $("trackingStatus").value;
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Reject failed:\n" +
+                error.message
+            );
+
+        }
+
+    };
 
 
-    const message =
-      $("trackingMessage").value.trim();
+// ============================================================
+// CUSTOMERS
+// ============================================================
+
+function updateCustomers() {
+
+    const customersMap = {};
 
 
-    if (!orderId) {
+    allOrders.forEach(order => {
 
-      alert("Enter Order ID.");
+        const phone =
+            order.mobile ||
+            order.phone ||
+            order.customerPhone ||
+            order.customer?.phone;
 
-      return;
 
-    }
+        if (!phone) return;
 
 
-    try {
+        if (!customersMap[phone]) {
 
-      const eventRef =
-        push(
-          ref(
-            db,
-            `orders/${orderId}/trackingTimeline`
-          )
+            customersMap[phone] = {
+
+                name:
+                    order.customerName ||
+                    order.name ||
+                    order.customer?.name ||
+                    "Customer",
+
+                mobile:
+                    phone,
+
+                orders:
+                    0,
+
+                total:
+                    0
+
+            };
+
+        }
+
+
+        customersMap[phone].orders++;
+
+
+        customersMap[phone].total +=
+            Number(
+                order.totalAmount ||
+                order.total ||
+                order.amount ||
+                order.productPrice ||
+                0
+            );
+
+    });
+
+
+    allCustomers =
+        Object.values(
+            customersMap
         );
 
 
-      await set(eventRef, {
+    renderCustomers();
 
-        status,
-
-        message,
-
-        timestamp: Date.now(),
-
-        date:
-          new Date().toLocaleString()
-
-      });
+}
 
 
-      await update(
-        ref(db, `orders/${orderId}`),
-        {
+// ============================================================
+// RENDER CUSTOMERS
+// ============================================================
 
-          status,
+function renderCustomers() {
 
-          statusUpdatedAt: Date.now()
+    const tbody =
+        $("customersTable");
+
+
+    if (!tbody) return;
+
+
+    if (
+        allCustomers.length === 0
+    ) {
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="4"
+                    style="
+                        text-align:center;
+                        padding:25px;
+                    "
+                >
+
+                    No customers found.
+
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+
+    tbody.innerHTML =
+        allCustomers
+            .map(customer => `
+
+                <tr>
+
+                    <td>
+
+                        ${escapeHTML(
+                            customer.name
+                        )}
+
+                    </td>
+
+
+                    <td>
+
+                        ${escapeHTML(
+                            customer.mobile
+                        )}
+
+                    </td>
+
+
+                    <td>
+
+                        ${customer.orders}
+
+                    </td>
+
+
+                    <td>
+
+                        ${formatMoney(
+                            customer.total
+                        )}
+
+                    </td>
+
+                </tr>
+
+            `)
+            .join("");
+
+}
+
+
+// ============================================================
+// TRACKING
+// ============================================================
+
+window.addTrackingUpdate =
+    async function() {
+
+        if (!db) return;
+
+
+        const orderId =
+            $("trackingOrderId")
+                ?.value
+                .trim();
+
+
+        const status =
+            $("trackingStatus")
+                ?.value
+                .trim();
+
+
+        const message =
+            $("trackingMessage")
+                ?.value
+                .trim();
+
+
+        if (!orderId) {
+
+            alert(
+                "Enter Order ID."
+            );
+
+            return;
 
         }
-      );
 
 
-      $("trackingMessage").value = "";
+        if (!status) {
 
-      toast(
-        "Tracking update added."
-      );
+            alert(
+                "Enter tracking status."
+            );
 
-    } catch (error) {
+            return;
 
-      alert(
-        "Tracking update failed: " +
-        error.message
-      );
-
-    }
-
-  };
+        }
 
 
-/* =========================================================
-   MAP
-   ========================================================= */
+        const order =
+            allOrders.find(item =>
 
-function listenStoreLocation() {
+                item.firebaseKey ===
+                    orderId ||
 
-  onValue(
-    ref(db, "storeLocation"),
-    snapshot => {
+                item.orderId ===
+                    orderId ||
 
-      const loc =
-        snapshot.val() || {
+                item.id ===
+                    orderId
 
-          lat: 22.5726,
-
-          lng: 88.3639
-
-        };
+            );
 
 
-      $("mapLat").value =
-        loc.lat || "";
+        if (!order) {
+
+            alert(
+                "Order not found.\n\n" +
+                "Make sure the Order ID is correct."
+            );
+
+            return;
+
+        }
 
 
-      $("mapLng").value =
-        loc.lng || "";
+        try {
+
+            await update(
+                ref(
+                    db,
+                    `orders/${order.firebaseKey}`
+                ),
+                {
+
+                    status:
+                        status,
+
+                    updatedAt:
+                        Date.now()
+
+                }
+            );
 
 
-      updateMapPreview();
+            const timeline =
+                push(
+                    ref(
+                        db,
+                        `orders/${order.firebaseKey}/trackingTimeline`
+                    )
+                );
 
-    }
-  );
+
+            await set(
+                timeline,
+                {
+
+                    status:
+                        status,
+
+                    label:
+                        status,
+
+                    message:
+                        message,
+
+                    note:
+                        message,
+
+                    timestamp:
+                        Date.now()
+
+                }
+            );
+
+
+            showToast(
+                "Tracking update added."
+            );
+
+
+            if ($("trackingOrderId"))
+                $("trackingOrderId").value =
+                    "";
+
+
+            if ($("trackingMessage"))
+                $("trackingMessage").value =
+                    "";
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Tracking update failed:\n" +
+                error.message
+            );
+
+        }
+
+    };
+
+
+// ============================================================
+// GOOGLE MAPS
+// ============================================================
+
+function loadMapSettings() {
+
+    if (!db) return;
+
+
+    onValue(
+        ref(db, "storeLocation"),
+        snapshot => {
+
+            const data =
+                snapshot.val() || {};
+
+
+            if ($("mapLat"))
+                $("mapLat").value =
+                    data.lat || "";
+
+
+            if ($("mapLng"))
+                $("mapLng").value =
+                    data.lng || "";
+
+
+            if ($("mapFrame"))
+                $("mapFrame").value =
+                    data.mapFrame ||
+                    data.mapUrl ||
+                    "";
+
+        }
+    );
 
 }
-
-
-function updateMapPreview() {
-
-  const lat =
-    $("mapLat").value;
-
-
-  const lng =
-    $("mapLng").value;
-
-
-  if (!lat || !lng) return;
-
-
-  $("mapFrame").src =
-    `https://www.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
-
-}
-
-
-$("mapLat")?.addEventListener(
-  "input",
-  updateMapPreview
-);
-
-
-$("mapLng")?.addEventListener(
-  "input",
-  updateMapPreview
-);
 
 
 window.saveMapLocation =
-  async function() {
+    async function() {
 
-    const lat =
-      Number($("mapLat").value);
-
-
-    const lng =
-      Number($("mapLng").value);
+        if (!db) return;
 
 
-    if (!Number.isFinite(lat) ||
-        !Number.isFinite(lng)) {
-
-      alert("Invalid latitude/longitude.");
-
-      return;
-
-    }
+        const lat =
+            $("mapLat")
+                ?.value
+                .trim() || "";
 
 
-    try {
-
-      await set(
-        ref(db, "storeLocation"),
-        {
-
-          lat,
-
-          lng,
-
-          updatedAt: Date.now()
-
-        }
-      );
+        const lng =
+            $("mapLng")
+                ?.value
+                .trim() || "";
 
 
-      toast(
-        "Store location updated."
-      );
-
-    } catch (error) {
-
-      alert(
-        "Map update failed: " +
-        error.message
-      );
-
-    }
-
-  };
+        const mapFrame =
+            $("mapFrame")
+                ?.value
+                .trim() || "";
 
 
-/* =========================================================
-   DELIVERY
-   ========================================================= */
+        try {
 
-function listenDelivery() {
+            await set(
+                ref(
+                    db,
+                    "storeLocation"
+                ),
+                {
 
-  onValue(
-    ref(db, "deliverySettings"),
-    snapshot => {
+                    lat:
+                        lat,
 
-      const data =
-        snapshot.val() || {};
+                    lng:
+                        lng,
 
+                    mapFrame:
+                        mapFrame,
 
-      $("deliveryCharge").value =
-        data.charge ?? 0;
+                    updatedAt:
+                        Date.now()
 
-
-      $("freeDelivery").value =
-        data.freeThreshold ?? 499;
-
-
-      $("deliveryDays").value =
-        data.deliveryDays ||
-        "2 - 4 Business Days";
-
-    }
-  );
-
-}
+                }
+            );
 
 
-window.saveDelivery =
-  async function() {
+            showToast(
+                "Map location saved."
+            );
 
-    try {
 
-      await set(
-        ref(db, "deliverySettings"),
-        {
+        } catch (error) {
 
-          charge:
-            Number(
-              $("deliveryCharge").value || 0
-            ),
+            console.error(error);
 
-          freeThreshold:
-            Number(
-              $("freeDelivery").value || 0
-            ),
-
-          deliveryDays:
-            $("deliveryDays").value.trim(),
-
-          updatedAt:
-            Date.now()
+            alert(
+                "Map save failed:\n" +
+                error.message
+            );
 
         }
-      );
+
+    };
 
 
-      toast(
-        "Delivery settings saved."
-      );
+// ============================================================
+// HOMEPAGE
+// ============================================================
 
-    } catch (error) {
+function loadHomepage() {
 
-      alert(
-        "Delivery save failed: " +
-        error.message
-      );
-
-    }
-
-  };
+    if (!db) return;
 
 
-/* =========================================================
-   HOMEPAGE
-   ========================================================= */
+    onValue(
+        ref(
+            db,
+            "homepageSettings"
+        ),
+        snapshot => {
 
-function listenHomepage() {
-
-  onValue(
-    ref(db, "homepageSettings"),
-    snapshot => {
-
-      const data =
-        snapshot.val() || {};
+            const data =
+                snapshot.val() || {};
 
 
-      $("hpAnnouncement").value =
-        data.announcement || "";
+            if ($("hpAnnouncement"))
+                $("hpAnnouncement").value =
+                    data.announcement || "";
 
 
-      $("hpHeadline").value =
-        data.heroHeadline || "";
+            if ($("hpHeadline"))
+                $("hpHeadline").value =
+                    data.headline ||
+                    data.heroHeadline ||
+                    "";
 
 
-      $("hpSubtitle").value =
-        data.heroSubtitle || "";
+            if ($("hpSubtitle"))
+                $("hpSubtitle").value =
+                    data.subtitle ||
+                    data.heroSubtitle ||
+                    "";
 
 
-      $("hpImage").value =
-        data.heroImage || "";
+            if ($("hpImage"))
+                $("hpImage").value =
+                    data.image ||
+                    data.heroImage ||
+                    "";
 
-    }
-  );
+        }
+    );
 
 }
 
 
 window.saveHomepage =
-  async function() {
+    async function() {
 
-    try {
+        if (!db) return;
 
-      await set(
-        ref(db, "homepageSettings"),
-        {
 
-          announcement:
-            $("hpAnnouncement").value,
+        try {
 
-          heroHeadline:
-            $("hpHeadline").value,
+            await set(
+                ref(
+                    db,
+                    "homepageSettings"
+                ),
+                {
 
-          heroSubtitle:
-            $("hpSubtitle").value,
+                    announcement:
+                        $("hpAnnouncement")
+                            ?.value || "",
 
-          heroImage:
-            $("hpImage").value,
+                    headline:
+                        $("hpHeadline")
+                            ?.value || "",
 
-          updatedAt:
-            Date.now()
+                    subtitle:
+                        $("hpSubtitle")
+                            ?.value || "",
+
+                    image:
+                        $("hpImage")
+                            ?.value || "",
+
+                    updatedAt:
+                        Date.now()
+
+                }
+            );
+
+
+            showToast(
+                "Homepage settings saved."
+            );
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Homepage save failed:\n" +
+                error.message
+            );
 
         }
-      );
+
+    };
 
 
-      toast(
-        "Homepage settings saved."
-      );
+// ============================================================
+// DELIVERY
+// ============================================================
 
-    } catch (error) {
+function loadDelivery() {
 
-      alert(
-        "Homepage save failed: " +
-        error.message
-      );
-
-    }
-
-  };
+    if (!db) return;
 
 
-/* =========================================================
-   WEBSITE SETTINGS
-   ========================================================= */
+    onValue(
+        ref(
+            db,
+            "deliverySettings"
+        ),
+        snapshot => {
 
-function listenWebsiteSettings() {
-
-  onValue(
-    ref(db, "websiteSettings"),
-    snapshot => {
-
-      const data =
-        snapshot.val() || {};
+            const data =
+                snapshot.val() || {};
 
 
-      $("siteTitle").value =
-        data.title || "";
+            if ($("deliveryCharge"))
+                $("deliveryCharge").value =
+                    data.charge || 0;
 
 
-      $("logoUrl").value =
-        data.logoUrl || "";
+            if ($("freeDelivery"))
+                $("freeDelivery").value =
+                    data.freeDelivery ??
+                    data.freeThreshold ??
+                    0;
 
 
-      $("facebookUrl").value =
-        data.facebook || "";
+            if ($("deliveryDays"))
+                $("deliveryDays").value =
+                    data.days ||
+                    data.deliveryDays ||
+                    "";
+
+        }
+    );
+
+}
 
 
-      $("instagramUrl").value =
-        data.instagram || "";
+window.saveDelivery =
+    async function() {
 
-    }
-  );
+        if (!db) return;
+
+
+        try {
+
+            await set(
+                ref(
+                    db,
+                    "deliverySettings"
+                ),
+                {
+
+                    charge:
+                        Number(
+                            $("deliveryCharge")
+                                ?.value || 0
+                        ),
+
+                    freeDelivery:
+                        Number(
+                            $("freeDelivery")
+                                ?.value || 0
+                        ),
+
+                    days:
+                        $("deliveryDays")
+                            ?.value || "",
+
+                    updatedAt:
+                        Date.now()
+
+                }
+            );
+
+
+            showToast(
+                "Delivery settings saved."
+            );
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Delivery save failed:\n" +
+                error.message
+            );
+
+        }
+
+    };
+
+
+// ============================================================
+// WEBSITE SETTINGS
+// ============================================================
+
+function loadWebsiteSettings() {
+
+    if (!db) return;
+
+
+    onValue(
+        ref(
+            db,
+            "websiteSettings"
+        ),
+        snapshot => {
+
+            const data =
+                snapshot.val() || {};
+
+
+            if ($("siteTitle"))
+                $("siteTitle").value =
+                    data.siteTitle ||
+                    data.title ||
+                    "";
+
+
+            if ($("logoUrl"))
+                $("logoUrl").value =
+                    data.logoUrl ||
+                    "";
+
+
+            if ($("facebookUrl"))
+                $("facebookUrl").value =
+                    data.facebookUrl ||
+                    data.facebook ||
+                    "";
+
+
+            if ($("instagramUrl"))
+                $("instagramUrl").value =
+                    data.instagramUrl ||
+                    data.instagram ||
+                    "";
+
+        }
+    );
 
 }
 
 
 window.saveWebsiteSettings =
-  async function() {
+    async function() {
 
-    try {
-
-      await set(
-        ref(db, "websiteSettings"),
-        {
-
-          title:
-            $("siteTitle").value,
-
-          logoUrl:
-            $("logoUrl").value,
-
-          facebook:
-            $("facebookUrl").value,
-
-          instagram:
-            $("instagramUrl").value,
-
-          updatedAt:
-            Date.now()
-
-        }
-      );
+        if (!db) return;
 
 
-      toast(
-        "Website settings saved."
-      );
+        try {
 
-    } catch (error) {
+            await set(
+                ref(
+                    db,
+                    "websiteSettings"
+                ),
+                {
 
-      alert(
-        "Settings save failed: " +
-        error.message
-      );
+                    siteTitle:
+                        $("siteTitle")
+                            ?.value || "",
 
-    }
+                    logoUrl:
+                        $("logoUrl")
+                            ?.value || "",
 
-  };
+                    facebookUrl:
+                        $("facebookUrl")
+                            ?.value || "",
 
+                    instagramUrl:
+                        $("instagramUrl")
+                            ?.value || "",
 
-/* =========================================================
-   SERVICES
-   ========================================================= */
+                    updatedAt:
+                        Date.now()
 
-function listenServices() {
-
-  onValue(
-    ref(db, "servicesSettings"),
-    snapshot => {
-
-      const data =
-        snapshot.val() || {};
-
-
-      $("serviceBuy").checked =
-        data.buy !== false;
+                }
+            );
 
 
-      $("serviceSell").checked =
-        data.sell !== false;
+            showToast(
+                "Website settings saved."
+            );
 
 
-      $("serviceTracking").checked =
-        data.tracking !== false;
+        } catch (error) {
 
+            console.error(error);
 
-      $("serviceVerification").checked =
-        data.verification !== false;
-
-    }
-  );
-
-}
-
-
-window.saveServices =
-  async function() {
-
-    try {
-
-      await set(
-        ref(db, "servicesSettings"),
-        {
-
-          buy:
-            $("serviceBuy").checked,
-
-          sell:
-            $("serviceSell").checked,
-
-          tracking:
-            $("serviceTracking").checked,
-
-          verification:
-            $("serviceVerification").checked,
-
-          updatedAt:
-            Date.now()
+            alert(
+                "Website settings save failed:\n" +
+                error.message
+            );
 
         }
-      );
+
+    };
 
 
-      toast(
-        "Services settings saved."
-      );
-
-    } catch (error) {
-
-      alert(
-        "Services save failed: " +
-        error.message
-      );
-
-    }
-
-  };
-
-
-/* =========================================================
-   DASHBOARD
-   ========================================================= */
+// ============================================================
+// DASHBOARD
+// ============================================================
 
 function updateDashboard() {
 
-  const pendingOrders =
-    orders.filter(order => {
+    if ($("totalProducts")) {
 
-      const status =
-        String(order.status || "")
-          .toLowerCase();
+        $("totalProducts").textContent =
+            allProducts.length;
 
-
-      return [
-
-        "pending",
-
-        "confirmed",
-
-        "confirmed & processing",
-
-        "processing",
-
-        "order placed"
-
-      ].includes(status);
-
-    });
+    }
 
 
-  $("totalProducts").textContent =
-    products.length;
+    if ($("totalOrders")) {
+
+        $("totalOrders").textContent =
+            allOrders.length;
+
+    }
 
 
-  $("totalOrders").textContent =
-    orders.length;
+    const pendingOrders =
+        allOrders.filter(order => {
+
+            const status =
+                String(
+                    order.status ||
+                    "Pending"
+                ).toLowerCase();
 
 
-  $("pendingOrders").textContent =
-    pendingOrders.length;
+            return (
+                status === "pending" ||
+                status ===
+                    "pending verification"
+            );
+
+        });
 
 
-  $("totalSells").textContent =
-    sellRequests.length;
+    if ($("pendingOrders")) {
+
+        $("pendingOrders").textContent =
+            pendingOrders.length;
+
+    }
 
 
-  $("productBadge").textContent =
-    products.length;
+    if ($("totalSells")) {
+
+        $("totalSells").textContent =
+            allSellerRequests.length;
+
+    }
 
 
-  $("orderBadge").textContent =
-    pendingOrders.length;
-
-
-  $("sellBadge").textContent =
-    sellRequests.filter(s =>
-      String(s.status || "")
-        .toLowerCase()
-        .includes("pending")
-    ).length;
+    renderRecentOrders();
 
 }
 
 
-/* =========================================================
-   HTML ESCAPE
-   ========================================================= */
+// ============================================================
+// RECENT ORDERS
+// ============================================================
 
-function escapeHtml(value) {
+function renderRecentOrders() {
 
-  return String(value ?? "")
+    const container =
+        $("recentOrders");
 
-    .replaceAll("&", "&amp;")
 
-    .replaceAll("<", "&lt;")
+    if (!container) return;
 
-    .replaceAll(">", "&gt;")
 
-    .replaceAll('"', "&quot;")
+    if (allOrders.length === 0) {
 
-    .replaceAll("'", "&#039;");
+        container.innerHTML =
+            "No recent orders.";
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        allOrders
+            .slice()
+            .reverse()
+            .slice(0, 5)
+            .map(order => `
+
+                <div
+                    style="
+                        padding:10px;
+                        margin-bottom:8px;
+                        border-bottom:
+                            1px solid #333;
+                    "
+                >
+
+                    <strong>
+
+                        ${escapeHTML(
+                            order.orderId ||
+                            order.id ||
+                            order.firebaseKey
+                        )}
+
+                    </strong>
+
+
+                    <br>
+
+
+                    <small>
+
+                        ${escapeHTML(
+                            order.customerName ||
+                            order.name ||
+                            "Customer"
+                        )}
+
+                    </small>
+
+
+                    <br>
+
+
+                    <span>
+
+                        ${formatMoney(
+                            order.totalAmount ||
+                            order.total ||
+                            order.amount ||
+                            order.productPrice
+                        )}
+
+                    </span>
+
+
+                    <br>
+
+
+                    <small>
+
+                        ${escapeHTML(
+                            order.status ||
+                            "Pending"
+                        )}
+
+                    </small>
+
+                </div>
+
+            `)
+            .join("");
 
 }
 
 
-/* =========================================================
-   START
-   ========================================================= */
+// ============================================================
+// START FIREBASE LISTENERS
+// ============================================================
+
+function startFirebaseListeners() {
+
+    if (!db) {
+
+        console.error(
+            "Firebase database is not available."
+        );
+
+        return;
+
+    }
+
+
+    console.log(
+        "Starting Firebase listeners..."
+    );
+
+
+    loadProducts();
+
+    loadOrders();
+
+    loadSellerRequests();
+
+    loadServices();
+
+    loadMapSettings();
+
+    loadHomepage();
+
+    loadDelivery();
+
+    loadWebsiteSettings();
+
+
+    console.log(
+        "All admin listeners started."
+    );
+
+}
+
+
+// ============================================================
+// PAGE START
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        console.log(
+            "Rittik Mobile Shop Admin loaded."
+        );
+
+
+        initializeNavigation();
+
+
+        startFirebaseListeners();
+
+    }
+);
+
+
+// ============================================================
+// GLOBAL DEBUG
+// ============================================================
+
+window.RittikAdmin = {
+
+    getProducts:
+        () => allProducts,
+
+    getOrders:
+        () => allOrders,
+
+    getSellRequests:
+        () => allSellerRequests,
+
+    getCustomers:
+        () => allCustomers,
+
+    firebase:
+        () => db
+
+};
+
 
 console.log(
-  "Rittik Mobile Shop Admin loaded."
+    "RITTIK MOBILE SHOP ADMIN JS READY"
 );
