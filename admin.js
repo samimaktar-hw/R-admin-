@@ -7,6 +7,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
+    getAuth,
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
     getDatabase,
     ref,
     onValue,
@@ -40,6 +47,7 @@ const firebaseConfig = {
 
 let app = null;
 let db = null;
+let auth = null;
 
 try {
 
@@ -49,6 +57,7 @@ try {
     );
 
     db = getDatabase(app);
+    auth = getAuth(app);
 
     console.log(
         "Firebase Admin connected successfully."
@@ -3769,22 +3778,133 @@ function startFirebaseListeners() {
 // PAGE START
 // ============================================================
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+let adminListenersStarted = false;
 
-        console.log(
-            "Rittik Mobile Shop Admin loaded."
-        );
+function showAdminLogin(errorMessage = "") {
+    const login = $("adminLogin");
+    const panel = $("adminApp");
 
+    if (login) login.style.display = "flex";
+    if (panel) panel.style.display = "none";
 
-        initializeNavigation();
-
-
-        startFirebaseListeners();
-
+    const errorBox = $("adminLoginError");
+    if (errorBox) {
+        if (errorMessage) {
+            errorBox.textContent = errorMessage;
+            errorBox.style.display = "block";
+        } else {
+            errorBox.textContent = "";
+            errorBox.style.display = "none";
+        }
     }
-);
+}
+
+function showAdminPanel(user) {
+    const login = $("adminLogin");
+    const panel = $("adminApp");
+
+    if (login) login.style.display = "none";
+    if (panel) panel.style.display = "flex";
+
+    const emailEl = $("adminEmail");
+    if (emailEl) {
+        emailEl.textContent = user?.email || "Admin";
+    }
+
+    if (!adminListenersStarted) {
+        adminListenersStarted = true;
+        startFirebaseListeners();
+    }
+}
+
+window.adminLogin = async function () {
+    const email = $("adminLoginEmail")?.value.trim() || "";
+    const password = $("adminLoginPassword")?.value || "";
+    const button = $("adminLoginButton");
+
+    showAdminLogin("");
+
+    if (!email || !password) {
+        showAdminLogin("Email and password are required.");
+        return;
+    }
+
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> LOGIN...';
+    }
+
+    try {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        const user = result.user;
+
+        if (user.uid !== "xHYXzY9Xi2P50m78yOLOv9OZFIP2") {
+            await signOut(auth);
+            throw new Error("Access denied. This account is not the store administrator.");
+        }
+
+        showAdminPanel(user);
+    } catch (error) {
+        console.error("Admin login error:", error);
+
+        let message = "Login failed. Check your email and password.";
+
+        if (error?.message?.includes("Access denied")) {
+            message = error.message;
+        } else if (error?.code === "auth/invalid-credential") {
+            message = "Invalid email or password.";
+        } else if (error?.code === "auth/user-not-found") {
+            message = "Admin account was not found in Firebase Authentication.";
+        } else if (error?.code === "auth/wrong-password") {
+            message = "Wrong password.";
+        }
+
+        showAdminLogin(message);
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> LOGIN';
+        }
+    }
+};
+
+window.adminLogout = async function () {
+    try {
+        await signOut(auth);
+    } catch (error) {
+        console.error("Admin logout error:", error);
+    }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Rittik Mobile Shop Admin loaded.");
+    initializeNavigation();
+
+    const form = $("adminLoginForm");
+    if (form) {
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            window.adminLogin();
+        });
+    }
+
+    showAdminLogin("");
+
+    onAuthStateChanged(auth, (user) => {
+        if (!user) {
+            showAdminLogin("");
+            return;
+        }
+
+        if (user.uid !== "xHYXzY9Xi2P50m78yOLOv9OZFIP2") {
+            signOut(auth);
+            showAdminLogin("Access denied. This account is not the store administrator.");
+            return;
+        }
+
+        showAdminPanel(user);
+    });
+});
 
 
 // ============================================================
