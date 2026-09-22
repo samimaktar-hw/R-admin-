@@ -19,8 +19,76 @@
 
 <body>
 
+
+<!-- ADMIN LOGIN -->
+<div id="adminLogin" style="
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:#05080d;
+  box-sizing:border-box;
+">
+  <div style="
+    width:100%;
+    max-width:390px;
+    background:#0b111a;
+    border:1px solid rgba(0,229,255,.22);
+    border-radius:18px;
+    padding:28px;
+    box-shadow:0 20px 60px rgba(0,0,0,.45);
+    box-sizing:border-box;
+  ">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="
+        width:58px;height:58px;margin:0 auto 14px;
+        display:flex;align-items:center;justify-content:center;
+        border-radius:16px;background:#082532;
+        color:#00e5ff;font-size:25px;
+        border:1px solid rgba(0,229,255,.25);
+      ">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <h2 style="margin:0;color:#fff;font-size:21px;">RITTIK MOBILE SHOP</h2>
+      <p style="margin:7px 0 0;color:#8d9aaa;font-size:13px;">Administrator Login</p>
+    </div>
+
+    <form id="adminLoginForm">
+      <div style="margin-bottom:14px;">
+        <label style="display:block;color:#aeb9c7;font-size:12px;margin-bottom:7px;">Admin Email</label>
+        <input id="adminLoginEmail" type="email" autocomplete="username"
+          placeholder="Admin email" required
+          style="width:100%;box-sizing:border-box;padding:13px 14px;border-radius:10px;
+          border:1px solid #253344;background:#070c12;color:#fff;outline:none;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;color:#aeb9c7;font-size:12px;margin-bottom:7px;">Password</label>
+        <input id="adminLoginPassword" type="password" autocomplete="current-password"
+          placeholder="Password" required
+          style="width:100%;box-sizing:border-box;padding:13px 14px;border-radius:10px;
+          border:1px solid #253344;background:#070c12;color:#fff;outline:none;">
+      </div>
+
+      <div id="adminLoginError" style="
+        display:none;margin-bottom:13px;padding:10px 12px;border-radius:9px;
+        background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.25);
+        color:#ff8b8b;font-size:12px;line-height:1.4;
+      "></div>
+
+      <button id="adminLoginButton" type="submit" style="
+        width:100%;border:0;border-radius:10px;padding:13px;
+        background:#00a9c7;color:#fff;font-weight:800;cursor:pointer;
+      ">
+        <i class="fa-solid fa-right-to-bracket"></i> LOGIN
+      </button>
+    </form>
+  </div>
+</div>
+
 <!-- ADMIN APP -->
-<div id="adminApp" class="admin-app">
+<div id="adminApp" class="admin-app" style="display:none;">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -114,6 +182,15 @@
       </div>
 
     </div>
+
+
+      <button type="button" onclick="adminLogout()" style="
+        width:100%;margin-top:14px;padding:10px 12px;border-radius:9px;
+        border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.08);
+        color:#ff8b8b;cursor:pointer;font-weight:700;
+      ">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
+      </button>
 
   </aside>
 
