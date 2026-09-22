@@ -687,7 +687,7 @@
         <p>Product information</p>
       </div>
 
-      <button onclick="closeProductModal()">
+      <button type="button" onclick="closeProductModal()">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
@@ -839,7 +839,7 @@
         <p id="sellModalSubtitle"></p>
       </div>
 
-      <button onclick="closeSellModal()">
+      <button type="button" onclick="closeSellModal()">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
@@ -850,14 +850,16 @@
     <div class="modal-actions">
 
       <button
+        type="button"
         class="danger-btn"
-        onclick="rejectCurrentSell()">
+        onclick="rejectCurrentSell(event)">
         Reject
       </button>
 
       <button
+        type="button"
         class="primary-btn"
-        onclick="acceptCurrentSell()">
+        onclick="acceptCurrentSell(event)">
         Accept & Launch
       </button>
 
