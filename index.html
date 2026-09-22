@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Rittik Mobile Shop — Admin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+  <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-screen">
+
+  <div class="login-box">
+
+    <div class="login-logo">
+      <i class="fa-solid fa-mobile-screen-button"></i>
+    </div>
+
+    <h1>Rittik Mobile Shop</h1>
+    <p>Administrator Login</p>
+
+    <form id="loginForm">
+
+      <div class="input-group">
+        <i class="fa-solid fa-envelope"></i>
+        <input
+          type="email"
+          id="email"
+          placeholder="Admin Email"
+          required
+        >
+      </div>
+
+      <div class="input-group">
+        <i class="fa-solid fa-lock"></i>
+        <input
+          type="password"
+          id="password"
+          placeholder="Password"
+          required
+        >
+      </div>
+
+      <button class="login-btn" type="submit">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        Sign In
+      </button>
+
+      <div id="loginError"></div>
+
+    </form>
+
+  </div>
+
+</div>
+
+
+<!-- ADMIN APP -->
+<div id="adminApp" class="admin-app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-mobile-screen"></i>
+      </div>
+
+      <div>
+        <strong>RITTIK</strong>
+        <small>ADMIN PANEL</small>
+      </div>
+    </div>
+
+
+    <nav class="side-nav">
+
+      <button class="nav-btn active" data-section="dashboard">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-btn" data-section="services">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Our Services</span>
+      </button>
+
+      <button class="nav-btn" data-section="products">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+        <span>Products</span>
+        <b id="productBadge">0</b>
+      </button>
+
+      <button class="nav-btn" data-section="orders">
+        <i class="fa-solid fa-box"></i>
+        <span>Orders</span>
+        <b id="orderBadge">0</b>
+      </button>
+
+      <button class="nav-btn" data-section="sells">
+        <i class="fa-solid fa-hand-holding-dollar"></i>
+        <span>Sell Requests</span>
+        <b id="sellBadge">0</b>
+      </button>
+
+      <button class="nav-btn" data-section="customers">
+        <i class="fa-solid fa-users"></i>
+        <span>Customers</span>
+      </button>
+
+      <button class="nav-btn" data-section="tracking">
+        <i class="fa-solid fa-truck-fast"></i>
+        <span>Tracking Status</span>
+      </button>
+
+      <button class="nav-btn" data-section="maps">
+        <i class="fa-solid fa-map-location-dot"></i>
+        <span>Google Maps</span>
+      </button>
+
+      <button class="nav-btn" data-section="homepage">
+        <i class="fa-solid fa-house"></i>
+        <span>Homepage</span>
+      </button>
+
+      <button class="nav-btn" data-section="delivery">
+        <i class="fa-solid fa-truck"></i>
+        <span>Delivery</span>
+      </button>
+
+      <button class="nav-btn" data-section="settings">
+        <i class="fa-solid fa-gear"></i>
+        <span>Settings</span>
+      </button>
+
+    </nav>
+
+
+    <div class="sidebar-bottom">
+
+      <div class="admin-user">
+        <div class="avatar">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+
+        <div>
+          <strong id="adminEmail">Admin</strong>
+          <small>Administrator</small>
+        </div>
+      </div>
+
+      <button id="logoutBtn" class="logout-btn">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        Logout
+      </button>
+
+    </div>
+
+  </aside>
+
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <header class="topbar">
+
+      <div>
+        <h2 id="pageTitle">Dashboard</h2>
+        <p>Rittik Mobile Shop Management</p>
+      </div>
+
+      <button id="mobileMenuBtn" class="mobile-menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+
+    </header>
+
+
+    <div class="content">
+
+
+      <!-- DASHBOARD -->
+      <section id="dashboard" class="section active">
+
+        <div class="stats-grid">
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fa-solid fa-mobile-screen"></i>
+            </div>
+
+            <div>
+              <span>Total Products</span>
+              <strong id="totalProducts">0</strong>
+            </div>
+          </div>
+
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fa-solid fa-box"></i>
+            </div>
+
+            <div>
+              <span>Total Orders</span>
+              <strong id="totalOrders">0</strong>
+            </div>
+          </div>
+
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+
+            <div>
+              <span>Pending Orders</span>
+              <strong id="pendingOrders">0</strong>
+            </div>
+          </div>
+
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fa-solid fa-hand-holding-dollar"></i>
+            </div>
+
+            <div>
+              <span>Sell Requests</span>
+              <strong id="totalSells">0</strong>
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="panel">
+
+          <div class="panel-head">
+            <div>
+              <h3>Recent Orders</h3>
+              <p>Latest customer orders</p>
+            </div>
+
+            <button class="small-btn" onclick="openSection('orders')">
+              View All
+            </button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody id="recentOrders"></tbody>
+
+            </table>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- SERVICES -->
+      <section id="services" class="section">
+
+        <div class="section-title">
+          <h2>Our Services</h2>
+          <p>Manage services displayed on the website.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="service-grid">
+
+            <label class="service-item">
+              <input type="checkbox" id="serviceBuy" checked>
+              <span>
+                <i class="fa-solid fa-cart-shopping"></i>
+                Buy Mobile
+              </span>
+            </label>
+
+            <label class="service-item">
+              <input type="checkbox" id="serviceSell" checked>
+              <span>
+                <i class="fa-solid fa-money-bill-transfer"></i>
+                Sell Old Device
+              </span>
+            </label>
+
+            <label class="service-item">
+              <input type="checkbox" id="serviceTracking" checked>
+              <span>
+                <i class="fa-solid fa-truck"></i>
+                Order Tracking
+              </span>
+            </label>
+
+            <label class="service-item">
+              <input type="checkbox" id="serviceVerification" checked>
+              <span>
+                <i class="fa-solid fa-shield-halved"></i>
+                Device Verification
+              </span>
+            </label>
+
+          </div>
+
+          <button class="primary-btn" onclick="saveServices()">
+            <i class="fa-solid fa-floppy-disk"></i>
+            Save Services
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- PRODUCTS -->
+      <section id="products" class="section">
+
+        <div class="section-title-row">
+
+          <div>
+            <h2>Products</h2>
+            <p>Add and manage mobile products.</p>
+          </div>
+
+          <button class="primary-btn" onclick="openProductModal()">
+            <i class="fa-solid fa-plus"></i>
+            New Product
+          </button>
+
+        </div>
+
+
+        <div class="panel">
+
+          <div class="search-row">
+
+            <input
+              id="productSearch"
+              type="search"
+              placeholder="Search product..."
+            >
+
+            <select id="productFilter">
+              <option value="all">All Products</option>
+              <option value="approved">Approved</option>
+              <option value="out">Out of Stock</option>
+            </select>
+
+          </div>
+
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Brand</th>
+                  <th>Price</th>
+                  <th>RAM/ROM</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody id="productsTable"></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ORDERS -->
+      <section id="orders" class="section">
+
+        <div class="section-title">
+          <h2>Orders</h2>
+          <p>Manage customer orders and delivery status.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Mobile</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Update</th>
+                </tr>
+              </thead>
+
+              <tbody id="ordersTable"></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- SELL REQUESTS -->
+      <section id="sells" class="section">
+
+        <div class="section-title">
+          <h2>Sell Requests</h2>
+          <p>Review customer device selling requests.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Seller</th>
+                  <th>Device</th>
+                  <th>Expected Price</th>
+                  <th>Contact</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody id="sellsTable"></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- CUSTOMERS -->
+      <section id="customers" class="section">
+
+        <div class="section-title">
+          <h2>Customers</h2>
+          <p>Customer information from orders.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="table-wrap">
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Mobile</th>
+                  <th>Address</th>
+                  <th>Orders</th>
+                </tr>
+              </thead>
+
+              <tbody id="customersTable"></tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- TRACKING -->
+      <section id="tracking" class="section">
+
+        <div class="section-title">
+          <h2>Tracking Status Timeline</h2>
+          <p>Update the customer's order tracking timeline.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="form-grid">
+
+            <div class="field">
+              <label>Order ID</label>
+              <input id="trackingOrderId" placeholder="Order Firebase ID">
+            </div>
+
+            <div class="field">
+              <label>Status</label>
+
+              <select id="trackingStatus">
+                <option value="Order Placed">Order Placed</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Processing">Processing</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Out for Delivery">Out for Delivery</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+
+            </div>
+
+            <div class="field full">
+              <label>Message</label>
+              <textarea
+                id="trackingMessage"
+                placeholder="Tracking update message..."
+              ></textarea>
+            </div>
+
+          </div>
+
+          <button class="primary-btn" onclick="addTrackingUpdate()">
+            <i class="fa-solid fa-plus"></i>
+            Add Tracking Update
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- MAP -->
+      <section id="maps" class="section">
+
+        <div class="section-title">
+          <h2>Google Maps / Store Location</h2>
+          <p>Control the store location shown on the website.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="form-grid">
+
+            <div class="field">
+              <label>Latitude</label>
+              <input id="mapLat" type="number" step="any">
+            </div>
+
+            <div class="field">
+              <label>Longitude</label>
+              <input id="mapLng" type="number" step="any">
+            </div>
+
+          </div>
+
+          <div class="map-preview">
+            <iframe
+              id="mapFrame"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+          </div>
+
+          <button class="primary-btn" onclick="saveMapLocation()">
+            <i class="fa-solid fa-location-dot"></i>
+            Save Store Location
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- HOMEPAGE -->
+      <section id="homepage" class="section">
+
+        <div class="section-title">
+          <h2>Homepage Control</h2>
+          <p>Change homepage announcement and hero content.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="field">
+            <label>Announcement</label>
+            <input id="hpAnnouncement">
+          </div>
+
+          <div class="field">
+            <label>Hero Headline</label>
+            <input id="hpHeadline">
+          </div>
+
+          <div class="field">
+            <label>Hero Subtitle</label>
+            <textarea id="hpSubtitle"></textarea>
+          </div>
+
+          <div class="field">
+            <label>Hero Image URL</label>
+            <input id="hpImage">
+          </div>
+
+          <button class="primary-btn" onclick="saveHomepage()">
+            <i class="fa-solid fa-floppy-disk"></i>
+            Save Homepage
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- DELIVERY -->
+      <section id="delivery" class="section">
+
+        <div class="section-title">
+          <h2>Delivery Settings</h2>
+          <p>Control delivery charges and estimated delivery time.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="form-grid">
+
+            <div class="field">
+              <label>Delivery Charge</label>
+              <input id="deliveryCharge" type="number">
+            </div>
+
+            <div class="field">
+              <label>Free Delivery Above</label>
+              <input id="freeDelivery" type="number">
+            </div>
+
+            <div class="field">
+              <label>Delivery Days</label>
+              <input id="deliveryDays">
+            </div>
+
+          </div>
+
+          <button class="primary-btn" onclick="saveDelivery()">
+            <i class="fa-solid fa-floppy-disk"></i>
+            Save Delivery Settings
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- SETTINGS -->
+      <section id="settings" class="section">
+
+        <div class="section-title">
+          <h2>Website Settings</h2>
+          <p>Basic website information.</p>
+        </div>
+
+        <div class="panel">
+
+          <div class="field">
+            <label>Website Title</label>
+            <input id="siteTitle">
+          </div>
+
+          <div class="field">
+            <label>Logo URL</label>
+            <input id="logoUrl">
+          </div>
+
+          <div class="field">
+            <label>Facebook URL</label>
+            <input id="facebookUrl">
+          </div>
+
+          <div class="field">
+            <label>Instagram URL</label>
+            <input id="instagramUrl">
+          </div>
+
+          <button class="primary-btn" onclick="saveWebsiteSettings()">
+            <i class="fa-solid fa-floppy-disk"></i>
+            Save Settings
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+</div>
+
+
+<!-- PRODUCT MODAL -->
+<div id="productModal" class="modal">
+
+  <div class="modal-box large">
+
+    <div class="modal-head">
+
+      <div>
+        <h2 id="productModalTitle">Add New Product</h2>
+        <p>Product information</p>
+      </div>
+
+      <button onclick="closeProductModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+    </div>
+
+
+    <form id="productForm">
+
+      <input type="hidden" id="editProductKey">
+
+      <div class="form-grid">
+
+        <div class="field">
+          <label>Product Name</label>
+          <input id="pName" required>
+        </div>
+
+        <div class="field">
+          <label>Brand</label>
+          <input id="pBrand">
+        </div>
+
+        <div class="field">
+          <label>Category</label>
+          <input id="pCategory" value="Smartphone">
+        </div>
+
+        <div class="field">
+          <label>Price</label>
+          <input id="pPrice" type="number" required>
+        </div>
+
+        <div class="field">
+          <label>MRP</label>
+          <input id="pMrp" type="number">
+        </div>
+
+        <div class="field">
+          <label>Stock</label>
+          <input id="pStock" type="number" value="1">
+        </div>
+
+        <div class="field">
+          <label>RAM</label>
+          <input id="pRam" placeholder="8GB">
+        </div>
+
+        <div class="field">
+          <label>Storage / ROM</label>
+          <input id="pRom" placeholder="128GB">
+        </div>
+
+        <div class="field">
+          <label>Processor</label>
+          <input id="pProcessor">
+        </div>
+
+        <div class="field">
+          <label>Display</label>
+          <input id="pDisplay">
+        </div>
+
+        <div class="field">
+          <label>Camera</label>
+          <input id="pCamera">
+        </div>
+
+        <div class="field">
+          <label>Battery</label>
+          <input id="pBattery">
+        </div>
+
+        <div class="field">
+          <label>Condition</label>
+
+          <select id="pCondition">
+            <option value="New">New</option>
+            <option value="Like New">Like New</option>
+            <option value="Excellent">Excellent</option>
+            <option value="Good">Good</option>
+          </select>
+
+        </div>
+
+        <div class="field">
+          <label>Verification Quality</label>
+
+          <select id="pQuality">
+            <option value="Verified">Verified</option>
+            <option value="Premium Verified">Premium Verified</option>
+            <option value="Standard">Standard</option>
+          </select>
+
+        </div>
+
+        <div class="field">
+          <label>Warranty</label>
+          <input id="pWarranty">
+        </div>
+
+        <div class="field full">
+          <label>Image URL</label>
+          <input id="pImage">
+        </div>
+
+        <div class="field full">
+          <label>Highlights</label>
+          <textarea
+            id="pHighlights"
+            placeholder="Fast charging, AMOLED display, 5G..."
+          ></textarea>
+        </div>
+
+      </div>
+
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          class="secondary-btn"
+          onclick="closeProductModal()">
+          Cancel
+        </button>
+
+        <button type="submit" class="primary-btn">
+          <i class="fa-solid fa-floppy-disk"></i>
+          Save Product
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
+
+
+<!-- SELL MODAL -->
+<div id="sellModal" class="modal">
+
+  <div class="modal-box">
+
+    <div class="modal-head">
+
+      <div>
+        <h2>Sell Request</h2>
+        <p id="sellModalSubtitle"></p>
+      </div>
+
+      <button onclick="closeSellModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+    </div>
+
+    <div id="sellDetails"></div>
+
+    <div class="modal-actions">
+
+      <button
+        class="danger-btn"
+        onclick="rejectCurrentSell()">
+        Reject
+      </button>
+
+      <button
+        class="primary-btn"
+        onclick="acceptCurrentSell()">
+        Accept & Launch
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+
+<script type="module" src="admin.js"></script>
+
+</body>
+</html>
