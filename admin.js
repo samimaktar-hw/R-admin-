@@ -31,6 +31,7 @@ const firebaseConfig = {
 
     projectId:
         "rittik-mobile-shop-web-1"
+
 };
 
 
@@ -105,6 +106,7 @@ function escapeHTML(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+
 }
 
 
@@ -117,6 +119,7 @@ function formatMoney(value) {
         "₹ " +
         number.toLocaleString("en-IN")
     );
+
 }
 
 
@@ -163,12 +166,10 @@ function showToast(message) {
         toast.style.fontWeight =
             "600";
 
-        toast.style.boxShadow =
-            "0 0 20px rgba(0,255,136,.25)";
-
         document.body.appendChild(
             toast
         );
+
     }
 
     toast.textContent =
@@ -188,6 +189,7 @@ function showToast(message) {
                 "none";
 
         }, 3000);
+
 }
 
 
@@ -218,160 +220,192 @@ function firebaseError(error) {
 
         alert(
             "Firebase Error:\n\n" +
-            (error?.message ||
-                "Unknown error")
+            (
+                error?.message ||
+                "Unknown error"
+            )
         );
 
     }
+
 }
 
 
 // ============================================================
-// NAVIGATION
+// NAVIGATION FIX
 // ============================================================
 
-window.openSection =
-    function(
-        sectionName,
-        event
-    ) {
+window.openSection = function(
+    sectionName,
+    event
+) {
 
-        if (event) {
+    if (event) {
 
-            event.preventDefault();
-            event.stopPropagation();
+        event.preventDefault();
+        event.stopPropagation();
 
-        }
+    }
 
-        console.log(
-            "Opening section:",
+    console.log(
+        "Opening section:",
+        sectionName
+    );
+
+
+    // Hide every section
+    document
+        .querySelectorAll(".section")
+        .forEach(section => {
+
+            section.classList.remove(
+                "active"
+            );
+
+            section.style.display =
+                "none";
+
+        });
+
+
+    // Find requested section
+    const target =
+        document.getElementById(
             sectionName
         );
 
 
-        // Hide all sections
-        document
-            .querySelectorAll(
-                ".admin-section"
-            )
-            .forEach(section => {
+    if (!target) {
 
-                section.classList.remove(
-                    "active"
-                );
-
-                section.style.display =
-                    "none";
-
-            });
-
-
-        // Find target section
-        let target =
-            $(
-                "section-" +
-                sectionName
-            );
-
-
-        // Backup ID
-        if (!target) {
-
-            target =
-                $(sectionName);
-
-        }
-
-
-        if (!target) {
-
-            console.error(
-                "Section not found:",
-                sectionName
-            );
-
-            showToast(
-                "Section not found: " +
-                sectionName
-            );
-
-            return false;
-
-        }
-
-
-        target.classList.add(
-            "active"
+        console.error(
+            "Admin section not found:",
+            sectionName
         );
 
-        target.style.display =
-            "block";
-
-
-        // Active navigation
-        document
-            .querySelectorAll(
-                ".nav-link"
-            )
-            .forEach(link => {
-
-                link.classList.remove(
-                    "active"
-                );
-
-            });
-
-
-        let nav =
-            $(
-                "nav-" +
-                sectionName
-            );
-
-
-        if (!nav) {
-
-            nav =
-                document.querySelector(
-                    `[data-section="${sectionName}"]`
-                );
-
-        }
-
-
-        if (nav) {
-
-            nav.classList.add(
-                "active"
-            );
-
-        }
-
-
-        // Close mobile sidebar
-        const sidebar =
-            document.querySelector(
-                ".sidebar"
-            );
-
-        if (sidebar) {
-
-            sidebar.classList.remove(
-                "open"
-            );
-
-        }
-
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-
+        showToast(
+            "Section not found: " +
+            sectionName
+        );
 
         return false;
 
+    }
+
+
+    // Show requested section
+    target.classList.add(
+        "active"
+    );
+
+    target.style.display =
+        "block";
+
+
+    // Remove active state
+    document
+        .querySelectorAll(".nav-btn")
+        .forEach(button => {
+
+            button.classList.remove(
+                "active"
+            );
+
+        });
+
+
+    // Add active state
+    const navButton =
+        document.querySelector(
+            `.nav-btn[data-section="${CSS.escape(sectionName)}"]`
+        );
+
+
+    if (navButton) {
+
+        navButton.classList.add(
+            "active"
+        );
+
+    }
+
+
+    // Page titles
+    const titles = {
+
+        dashboard:
+            "Dashboard",
+
+        services:
+            "Our Services",
+
+        products:
+            "Products",
+
+        orders:
+            "Orders",
+
+        sells:
+            "Sell Requests",
+
+        customers:
+            "Customers",
+
+        tracking:
+            "Tracking Status",
+
+        maps:
+            "Google Maps",
+
+        homepage:
+            "Homepage Control",
+
+        delivery:
+            "Delivery Settings",
+
+        settings:
+            "Website Settings"
+
     };
+
+
+    const pageTitle =
+        $("pageTitle");
+
+
+    if (pageTitle) {
+
+        pageTitle.textContent =
+            titles[sectionName] ||
+            sectionName;
+
+    }
+
+
+    // Close mobile sidebar
+    const sidebar =
+        document.querySelector(
+            ".sidebar"
+        );
+
+
+    if (sidebar) {
+
+        sidebar.classList.remove(
+            "open"
+        );
+
+    }
+
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+
+
+    return false;
+
+};
 
 
 window.switchAdminSection =
@@ -379,52 +413,121 @@ window.switchAdminSection =
 
 
 // ============================================================
-// INITIAL NAVIGATION
+// INITIALIZE NAVIGATION
 // ============================================================
 
 function initializeNavigation() {
 
     const sections =
         document.querySelectorAll(
-            ".admin-section"
+            ".section"
         );
 
 
     sections.forEach(
         (section, index) => {
 
-            if (index === 0) {
+            const isDashboard =
+                section.id === "dashboard" ||
+                index === 0;
 
-                section.style.display =
-                    "block";
 
-                section.classList.add(
-                    "active"
-                );
+            section.classList.toggle(
+                "active",
+                isDashboard
+            );
 
-            } else {
 
-                section.style.display =
-                    "none";
-
-                section.classList.remove(
-                    "active"
-                );
-
-            }
+            section.style.display =
+                isDashboard
+                    ? "block"
+                    : "none";
 
         }
     );
 
 
-    // Make dashboard active
+    document
+        .querySelectorAll(".nav-btn")
+        .forEach(button => {
+
+            button.classList.remove(
+                "active"
+            );
+
+
+            button.addEventListener(
+                "click",
+                function(event) {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+
+                    const sectionName =
+                        this.dataset.section;
+
+
+                    if (sectionName) {
+
+                        window.openSection(
+                            sectionName,
+                            event
+                        );
+
+                    }
+
+                }
+            );
+
+        });
+
+
     const dashboardNav =
-        $("nav-dashboard");
+        document.querySelector(
+            '.nav-btn[data-section="dashboard"]'
+        );
+
 
     if (dashboardNav) {
 
         dashboardNav.classList.add(
             "active"
+        );
+
+    }
+
+
+    // Mobile menu
+    const mobileMenuBtn =
+        $("mobileMenuBtn");
+
+
+    if (mobileMenuBtn) {
+
+        mobileMenuBtn.addEventListener(
+            "click",
+            function(event) {
+
+                event.preventDefault();
+                event.stopPropagation();
+
+
+                const sidebar =
+                    document.querySelector(
+                        ".sidebar"
+                    );
+
+
+                if (sidebar) {
+
+                    sidebar.classList.toggle(
+                        "open"
+                    );
+
+                }
+
+            }
         );
 
     }
@@ -591,10 +694,6 @@ function loadProducts() {
 
 }
 
-
-// ============================================================
-// RENDER PRODUCTS
-// ============================================================
 
 function renderProducts() {
 
@@ -849,40 +948,7 @@ function renderProducts() {
 
 
 // ============================================================
-// PRODUCT SEARCH
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        if ($("productSearch")) {
-
-            $("productSearch")
-                .addEventListener(
-                    "input",
-                    renderProducts
-                );
-
-        }
-
-
-        if ($("productFilter")) {
-
-            $("productFilter")
-                .addEventListener(
-                    "change",
-                    renderProducts
-                );
-
-        }
-
-    }
-);
-
-
-// ============================================================
-// OPEN PRODUCT MODAL
+// PRODUCT MODAL
 // ============================================================
 
 window.openProductModal =
@@ -968,10 +1034,6 @@ window.openAddProductModal =
     window.openProductModal;
 
 
-// ============================================================
-// CLOSE PRODUCT MODAL
-// ============================================================
-
 window.closeProductModal =
     function() {
 
@@ -990,117 +1052,73 @@ window.closeProductModal =
 
 
 // ============================================================
-// FILL PRODUCT FORM
+// PRODUCT FORM
 // ============================================================
 
-function fillProductForm(
-    product
-) {
+function fillProductForm(product) {
 
-    if ($("editProductKey"))
-        $("editProductKey").value =
-            product.firebaseKey || "";
+    const fields = {
 
+        editProductKey:
+            product.firebaseKey,
 
-    if ($("pName"))
-        $("pName").value =
-            product.name || "";
+        productName:
+            product.name || "",
 
+        productBrand:
+            product.brand || "",
 
-    if ($("pBrand"))
-        $("pBrand").value =
-            product.brand || "";
+        productCategory:
+            product.category || "",
 
+        productPrice:
+            product.price || "",
 
-    if ($("pCategory"))
-        $("pCategory").value =
-            product.category || "";
+        productStock:
+            product.stock || 0,
 
+        productImage:
+            product.image || "",
 
-    if ($("pPrice"))
-        $("pPrice").value =
-            product.price || "";
+        productImages:
+            Array.isArray(product.images)
+                ? product.images.join("\n")
+                : "",
 
+        productRAM:
+            product.ram || "",
 
-    if ($("pMrp"))
-        $("pMrp").value =
-            product.mrp || "";
+        productStorage:
+            product.storage || "",
 
+        productCondition:
+            product.condition || "",
 
-    if ($("pStock"))
-        $("pStock").value =
-            product.stock || 0;
+        productQuality:
+            product.quality || "",
 
+        productWarranty:
+            product.warranty || ""
 
-    if ($("pRam"))
-        $("pRam").value =
-            product.ram ||
-            product.RAM ||
-            "";
-
-
-    if ($("pRom"))
-        $("pRom").value =
-            product.rom ||
-            product.ROM ||
-            product.storage ||
-            "";
+    };
 
 
-    if ($("pProcessor"))
-        $("pProcessor").value =
-            product.processor || "";
+    Object.entries(fields)
+        .forEach(
+            ([id, value]) => {
 
+                const element =
+                    $(id);
 
-    if ($("pDisplay"))
-        $("pDisplay").value =
-            product.display || "";
+                if (element) {
 
+                    element.value =
+                        value;
 
-    if ($("pCamera"))
-        $("pCamera").value =
-            product.camera || "";
+                }
 
-
-    if ($("pBattery"))
-        $("pBattery").value =
-            product.battery || "";
-
-
-    if ($("pCondition"))
-        $("pCondition").value =
-            product.condition || "";
-
-
-    if ($("pQuality"))
-        $("pQuality").value =
-            product.quality || "";
-
-
-    if ($("pWarranty"))
-        $("pWarranty").value =
-            product.warranty || "";
-
-
-    if ($("pImage"))
-        $("pImage").value =
-            product.image ||
-            product.imageUrl ||
-            (
-                Array.isArray(
-                    product.images
-                )
-                    ? product.images[0]
-                    : ""
-            );
-
-
-    if ($("pHighlights"))
-        $("pHighlights").value =
-            typeof product.highlights ===
-            "string"
-                ? product.highlights
-                : "";
+            }
+        );
 
 }
 
@@ -1109,264 +1127,175 @@ function fillProductForm(
 // SAVE PRODUCT
 // ============================================================
 
-async function saveProduct(
-    event
-) {
+window.saveProduct =
+    async function() {
 
-    if (event) {
+        if (!db) {
 
-        event.preventDefault();
-        event.stopPropagation();
+            alert(
+                "Firebase is not connected."
+            );
 
-    }
+            return;
 
-
-    if (!db) {
-
-        alert(
-            "Firebase is not connected."
-        );
-
-        return false;
-
-    }
+        }
 
 
-    const productKey =
-        $("editProductKey")
-            ?.value || "";
+        const editKey =
+            $("editProductKey")
+                ?.value || "";
 
 
-    const name =
-        $("pName")
-            ?.value
-            ?.trim() || "";
+        const name =
+            $("productName")
+                ?.value
+                ?.trim() || "";
 
 
-    const price =
-        Number(
-            $("pPrice")
-                ?.value || 0
-        );
+        const brand =
+            $("productBrand")
+                ?.value
+                ?.trim() || "";
 
 
-    const mrp =
-        Number(
-            $("pMrp")
-                ?.value || 0
-        );
+        const category =
+            $("productCategory")
+                ?.value
+                ?.trim() || "";
 
 
-    const stock =
-        Number(
-            $("pStock")
-                ?.value || 0
-        );
+        const price =
+            Number(
+                $("productPrice")
+                    ?.value || 0
+            );
 
 
-    if (!name) {
-
-        alert(
-            "Please enter product name."
-        );
-
-        return false;
-
-    }
+        const stock =
+            Number(
+                $("productStock")
+                    ?.value || 0
+            );
 
 
-    if (price <= 0) {
-
-        alert(
-            "Please enter product price."
-        );
-
-        return false;
-
-    }
+        const image =
+            $("productImage")
+                ?.value
+                ?.trim() || "";
 
 
-    const productData = {
+        const imagesText =
+            $("productImages")
+                ?.value || "";
 
-        name:
+
+        const images =
+            imagesText
+                .split("\n")
+                .map(x => x.trim())
+                .filter(Boolean);
+
+
+        if (!name) {
+
+            alert(
+                "Please enter product name."
+            );
+
+            return;
+
+        }
+
+
+        const productData = {
+
             name,
-
-        brand:
-            $("pBrand")
-                ?.value
-                ?.trim() || "",
-
-        category:
-            $("pCategory")
-                ?.value
-                ?.trim() || "",
-
-        price:
+            brand,
+            category,
             price,
-
-        mrp:
-            mrp,
-
-        stock:
             stock,
+            image,
+            images,
 
-        ram:
-            $("pRam")
-                ?.value
-                ?.trim() || "",
+            ram:
+                $("productRAM")
+                    ?.value || "",
 
-        rom:
-            $("pRom")
-                ?.value
-                ?.trim() || "",
+            storage:
+                $("productStorage")
+                    ?.value || "",
 
-        processor:
-            $("pProcessor")
-                ?.value
-                ?.trim() || "",
+            condition:
+                $("productCondition")
+                    ?.value || "",
 
-        display:
-            $("pDisplay")
-                ?.value
-                ?.trim() || "",
+            quality:
+                $("productQuality")
+                    ?.value || "",
 
-        camera:
-            $("pCamera")
-                ?.value
-                ?.trim() || "",
+            warranty:
+                $("productWarranty")
+                    ?.value || "",
 
-        battery:
-            $("pBattery")
-                ?.value
-                ?.trim() || "",
+            status:
+                "approved",
 
-        condition:
-            $("pCondition")
-                ?.value
-                ?.trim() || "",
+            updatedAt:
+                Date.now()
 
-        quality:
-            $("pQuality")
-                ?.value
-                ?.trim() || "",
-
-        warranty:
-            $("pWarranty")
-                ?.value
-                ?.trim() || "",
-
-        image:
-            $("pImage")
-                ?.value
-                ?.trim() || "",
-
-        highlights:
-            $("pHighlights")
-                ?.value
-                ?.trim() || "",
-
-        status:
-            "approved",
-
-        updatedAt:
-            Date.now()
-
-    };
+        };
 
 
-    try {
+        try {
 
-        if (productKey) {
+            if (editKey) {
 
-            await update(
-                ref(
-                    db,
-                    `products/${productKey}`
-                ),
-                productData
-            );
-
-
-            showToast(
-                "Product updated successfully."
-            );
-
-        } else {
-
-            productData.createdAt =
-                Date.now();
-
-            productData.type =
-                "admin";
-
-
-            const newProduct =
-                push(
+                await update(
                     ref(
                         db,
-                        "products"
-                    )
+                        "products/" +
+                        editKey
+                    ),
+                    productData
                 );
 
+                showToast(
+                    "Product updated."
+                );
 
-            await set(
-                newProduct,
-                productData
-            );
+            } else {
 
+                await set(
+                    push(
+                        ref(
+                            db,
+                            "products"
+                        )
+                    ),
+                    {
+                        ...productData,
+                        createdAt:
+                            Date.now()
+                    }
+                );
 
-            showToast(
-                "Product added successfully."
-            );
+                showToast(
+                    "Product added."
+                );
 
-        }
-
-
-        window.closeProductModal();
-
-        return false;
-
-    } catch (error) {
-
-        console.error(
-            "Product save error:",
-            error
-        );
-
-        firebaseError(error);
-
-        return false;
-
-    }
-
-}
+            }
 
 
-// ============================================================
-// PRODUCT FORM
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        const form =
-            $("productForm") ||
-            $("productModal")
-                ?.querySelector("form");
+            window.closeProductModal();
 
 
-        if (form) {
+        } catch (error) {
 
-            form.addEventListener(
-                "submit",
-                saveProduct
-            );
+            firebaseError(error);
 
         }
 
-    }
-);
+    };
 
 
 // ============================================================
@@ -1388,44 +1317,18 @@ window.editProduct =
 // ============================================================
 
 window.deleteProduct =
-    async function(
-        productKey
-    ) {
+    async function(productKey) {
 
         if (!db) return;
 
 
-        const product =
-            allProducts.find(
-                item =>
-                    item.firebaseKey ===
-                    productKey
+        const confirmed =
+            confirm(
+                "Delete this product?"
             );
 
 
-        if (!product) {
-
-            alert(
-                "Product not found."
-            );
-
-            return;
-
-        }
-
-
-        if (
-            !confirm(
-                `Delete "${
-                    product.name ||
-                    "this product"
-                }"?`
-            )
-        ) {
-
-            return;
-
-        }
+        if (!confirmed) return;
 
 
         try {
@@ -1433,19 +1336,16 @@ window.deleteProduct =
             await remove(
                 ref(
                     db,
-                    `products/${productKey}`
+                    "products/" +
+                    productKey
                 )
             );
-
 
             showToast(
                 "Product deleted."
             );
 
-
         } catch (error) {
-
-            console.error(error);
 
             firebaseError(error);
 
@@ -1487,8 +1387,6 @@ function loadOrders() {
 
             renderOrders();
 
-            updateCustomers();
-
             updateDashboard();
 
         },
@@ -1499,47 +1397,35 @@ function loadOrders() {
                 error
             );
 
-            firebaseError(error);
-
         }
     );
 
 }
 
 
-// ============================================================
-// RENDER ORDERS
-// ============================================================
-
 function renderOrders() {
 
-    const tbody =
+    const container =
         $("ordersTable");
 
 
-    if (!tbody) return;
+    if (!container) return;
 
 
-    if (allOrders.length === 0) {
+    if (
+        allOrders.length ===
+        0
+    ) {
 
-        tbody.innerHTML = `
-
+        container.innerHTML = `
             <tr>
-
                 <td
-                    colspan="6"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
+                    colspan="10"
+                    style="text-align:center;padding:25px;"
                 >
-
                     No orders found.
-
                 </td>
-
             </tr>
-
         `;
 
         return;
@@ -1547,195 +1433,77 @@ function renderOrders() {
     }
 
 
-    tbody.innerHTML =
+    container.innerHTML =
         allOrders
             .slice()
             .reverse()
-            .map(order => {
+            .map(order => `
 
-                const orderId =
-                    order.orderId ||
-                    order.id ||
-                    order.firebaseKey;
+                <tr>
 
+                    <td>
+                        ${escapeHTML(
+                            order.orderId ||
+                            order.id ||
+                            order.firebaseKey
+                        )}
+                    </td>
 
-                const customer =
-                    order.customerName ||
-                    order.name ||
-                    order.customer?.name ||
-                    "Customer";
+                    <td>
+                        ${escapeHTML(
+                            order.customerName ||
+                            "Customer"
+                        )}
+                    </td>
 
+                    <td>
+                        ${escapeHTML(
+                            order.customerPhone ||
+                            ""
+                        )}
+                    </td>
 
-                const mobile =
-                    order.mobile ||
-                    order.phone ||
-                    order.customerPhone ||
-                    order.customer?.phone ||
-                    "—";
+                    <td>
+                        ${escapeHTML(
+                            order.productName ||
+                            ""
+                        )}
+                    </td>
 
+                    <td>
+                        ${formatMoney(
+                            order.productPrice ||
+                            order.totalAmount ||
+                            0
+                        )}
+                    </td>
 
-                const total =
-                    order.totalAmount ??
-                    order.total ??
-                    order.amount ??
-                    order.productPrice ??
-                    0;
+                    <td>
+                        ${escapeHTML(
+                            order.status ||
+                            "Pending"
+                        )}
+                    </td>
 
+                    <td>
+                        <button
+                            type="button"
+                            onclick="
+                                updateOrderStatus(
+                                    '${escapeHTML(
+                                        order.firebaseKey
+                                    )}'
+                                )
+                            "
+                        >
+                            Update
+                        </button>
+                    </td>
 
-                const status =
-                    order.status ||
-                    "Pending";
+                </tr>
 
-
-                return `
-
-                    <tr>
-
-                        <td>
-
-                            ${escapeHTML(
-                                orderId
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                customer
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                mobile
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${formatMoney(
-                                total
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            <select
-                                onchange="
-                                    updateOrderStatus(
-                                        '${escapeHTML(
-                                            order.firebaseKey
-                                        )}',
-                                        this.value
-                                    )
-                                "
-                            >
-
-                                ${
-                                    orderStatusOptions(
-                                        status
-                                    )
-                                }
-
-                            </select>
-
-                        </td>
-
-
-                        <td>
-
-                            <button
-                                type="button"
-                                onclick="
-                                    viewOrder(
-                                        '${escapeHTML(
-                                            order.firebaseKey
-                                        )}'
-                                    )
-                                "
-                            >
-
-                                View
-
-                            </button>
-
-                        </td>
-
-                    </tr>
-
-                `;
-
-            })
+            `)
             .join("");
-
-}
-
-
-// ============================================================
-// ORDER STATUS OPTIONS
-// ============================================================
-
-function orderStatusOptions(
-    current
-) {
-
-    const statuses = [
-
-        "Pending",
-
-        "Confirmed",
-
-        "Processing",
-
-        "Packed",
-
-        "Shipped",
-
-        "Out for Delivery",
-
-        "Delivered",
-
-        "Cancelled"
-
-    ];
-
-
-    return statuses
-        .map(
-            status => `
-
-                <option
-                    value="${escapeHTML(
-                        status
-                    )}"
-                    ${
-                        String(status)
-                            .toLowerCase() ===
-                        String(current)
-                            .toLowerCase()
-                            ? "selected"
-                            : ""
-                    }
-                >
-
-                    ${escapeHTML(
-                        status
-                    )}
-
-                </option>
-
-            `
-        )
-        .join("");
 
 }
 
@@ -1745,92 +1513,10 @@ function orderStatusOptions(
 // ============================================================
 
 window.updateOrderStatus =
-    async function(
-        orderKey,
-        newStatus
-    ) {
+    async function(orderKey) {
 
-        if (!db) {
+        if (!db) return;
 
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await update(
-                ref(
-                    db,
-                    `orders/${orderKey}`
-                ),
-                {
-
-                    status:
-                        newStatus,
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            const timelineRef =
-                push(
-                    ref(
-                        db,
-                        `orders/${orderKey}/trackingTimeline`
-                    )
-                );
-
-
-            await set(
-                timelineRef,
-                {
-
-                    status:
-                        newStatus,
-
-                    label:
-                        newStatus,
-
-                    timestamp:
-                        Date.now(),
-
-                    note:
-                        `Order status changed to ${newStatus}`
-
-                }
-            );
-
-
-            showToast(
-                "Order status updated."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// VIEW ORDER
-// ============================================================
-
-window.viewOrder =
-    function(orderKey) {
 
         const order =
             allOrders.find(
@@ -1840,127 +1526,44 @@ window.viewOrder =
             );
 
 
-        if (!order) {
-
-            alert(
-                "Order not found."
-            );
-
-            return;
-
-        }
+        if (!order) return;
 
 
-        const items =
-            order.items ||
-            order.products ||
-            [];
-
-
-        let itemText =
-            "";
-
-
-        if (Array.isArray(items)) {
-
-            itemText =
-                items
-                    .map(item => {
-
-                        return (
-                            item.name ||
-                            item.title ||
-                            "Product"
-                        ) +
-                        " × " +
-                        (
-                            item.quantity ||
-                            1
-                        );
-
-                    })
-                    .join("\n");
-
-        } else if (
-            typeof items ===
-            "object"
-        ) {
-
-            itemText =
-                Object.values(items)
-                    .map(item => {
-
-                        return (
-                            item.name ||
-                            item.title ||
-                            "Product"
-                        ) +
-                        " × " +
-                        (
-                            item.quantity ||
-                            1
-                        );
-
-                    })
-                    .join("\n");
-
-        }
-
-
-        const message =
-
-            "Order ID: " +
-            (
-                order.orderId ||
-                order.id ||
-                order.firebaseKey
-            ) +
-
-            "\n\nCustomer: " +
-            (
-                order.customerName ||
-                order.name ||
-                "—"
-            ) +
-
-            "\n\nMobile: " +
-            (
-                order.mobile ||
-                order.phone ||
-                order.customerPhone ||
-                "—"
-            ) +
-
-            "\n\nAddress: " +
-            (
-                order.address ||
-                order.deliveryAddress ||
-                "—"
-            ) +
-
-            "\n\nTotal: " +
-            formatMoney(
-                order.totalAmount ??
-                order.total ??
-                order.amount ??
-                order.productPrice ??
-                0
-            ) +
-
-            "\n\nStatus: " +
-            (
+        const status =
+            prompt(
+                "Enter new order status:",
                 order.status ||
-                "Pending"
-            ) +
-
-            "\n\nItems:\n" +
-            (
-                itemText ||
-                "No item details"
+                "Processing"
             );
 
 
-        alert(message);
+        if (!status) return;
+
+
+        try {
+
+            await update(
+                ref(
+                    db,
+                    "orders/" +
+                    orderKey
+                ),
+                {
+                    status,
+                    updatedAt:
+                        Date.now()
+                }
+            );
+
+            showToast(
+                "Order status updated."
+            );
+
+        } catch (error) {
+
+            firebaseError(error);
+
+        }
 
     };
 
@@ -2007,11 +1610,9 @@ function loadSellerRequests() {
         error => {
 
             console.error(
-                "Seller requests listener error:",
+                "Seller requests error:",
                 error
             );
-
-            firebaseError(error);
 
         }
     );
@@ -2019,17 +1620,13 @@ function loadSellerRequests() {
 }
 
 
-// ============================================================
-// RENDER SELL REQUESTS
-// ============================================================
-
 function renderSellerRequests() {
 
-    const tbody =
-        $("sellsTable");
+    const container =
+        $("sellRequestsTable");
 
 
-    if (!tbody) return;
+    if (!container) return;
 
 
     if (
@@ -2037,24 +1634,15 @@ function renderSellerRequests() {
         0
     ) {
 
-        tbody.innerHTML = `
-
+        container.innerHTML = `
             <tr>
-
                 <td
-                    colspan="6"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
+                    colspan="10"
+                    style="text-align:center;padding:25px;"
                 >
-
                     No sell requests found.
-
                 </td>
-
             </tr>
-
         `;
 
         return;
@@ -2062,112 +1650,73 @@ function renderSellerRequests() {
     }
 
 
-    tbody.innerHTML =
+    container.innerHTML =
         allSellerRequests
             .slice()
             .reverse()
-            .map(request => {
+            .map(request => `
 
-                const seller =
-                    request.sellerName ||
-                    request.name ||
-                    "Seller";
+                <tr>
 
+                    <td>
+                        ${escapeHTML(
+                            request.firebaseKey
+                        )}
+                    </td>
 
-                const device =
-                    request.device ||
-                    request.model ||
-                    request.productName ||
-                    request.name ||
-                    "Device";
+                    <td>
+                        ${escapeHTML(
+                            request.name ||
+                            request.sellerName ||
+                            "Customer"
+                        )}
+                    </td>
 
+                    <td>
+                        ${escapeHTML(
+                            request.mobile ||
+                            request.phone ||
+                            request.sellerMobile ||
+                            ""
+                        )}
+                    </td>
 
-                const price =
-                    request.price ??
-                    request.expectedPrice ??
-                    0;
+                    <td>
+                        ${escapeHTML(
+                            request.deviceName ||
+                            request.productName ||
+                            request.name ||
+                            ""
+                        )}
+                    </td>
 
+                    <td>
+                        ${escapeHTML(
+                            request.status ||
+                            "Pending"
+                        )}
+                    </td>
 
-                const status =
-                    request.status ||
-                    "Pending Verification";
+                    <td>
 
+                        <button
+                            type="button"
+                            onclick="
+                                openSellRequest(
+                                    '${escapeHTML(
+                                        request.firebaseKey
+                                    )}'
+                                )
+                            "
+                        >
+                            View
+                        </button>
 
-                return `
+                    </td>
 
-                    <tr>
+                </tr>
 
-                        <td>
-
-                            ${escapeHTML(
-                                seller
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                device
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                request.contact ||
-                                request.mobile ||
-                                "—"
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${formatMoney(
-                                price
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                status
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            <button
-                                type="button"
-                                onclick="
-                                    openSellRequest(
-                                        '${escapeHTML(
-                                            request.firebaseKey
-                                        )}'
-                                    )
-                                "
-                            >
-
-                                View
-
-                            </button>
-
-                        </td>
-
-                    </tr>
-
-                `;
-
-            })
+            `)
             .join("");
 
 }
@@ -2178,13 +1727,13 @@ function renderSellerRequests() {
 // ============================================================
 
 window.openSellRequest =
-    function(key) {
+    function(requestKey) {
 
         const request =
             allSellerRequests.find(
                 item =>
                     item.firebaseKey ===
-                    key
+                    requestKey
             );
 
 
@@ -2203,234 +1752,91 @@ window.openSellRequest =
             request;
 
 
-        console.log(
-            "Selected sell request:",
-            request
-        );
+        const modal =
+            $("sellRequestModal");
 
 
-        if ($("sellDetails")) {
+        if (modal) {
 
-            $("sellDetails").innerHTML = `
-
-                <div>
-
-                    <strong>
-                        Seller:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.sellerName ||
-                        request.name ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Device:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.device ||
-                        request.model ||
-                        request.productName ||
-                        request.name ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Mobile:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.contact ||
-                        request.mobile ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Email:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.email ||
-                        request.userEmail ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Expected Price:
-                    </strong>
-
-                    ${formatMoney(
-                        request.price ??
-                        request.expectedPrice ??
-                        0
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Address:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.address ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Condition:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.condition ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Quality:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.quality ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Status:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.status ||
-                        "Pending"
-                    )}
-
-                </div>
-
-
-                ${
-                    Array.isArray(
-                        request.images
-                    )
-                        ? `
-
-                            <div
-                                style="
-                                    margin-top:15px;
-                                    display:flex;
-                                    flex-wrap:wrap;
-                                "
-                            >
-
-                                ${
-                                    request.images
-                                        .map(
-                                            img => `
-
-                                                <img
-                                                    src="${escapeHTML(img)}"
-                                                    style="
-                                                        width:100px;
-                                                        height:100px;
-                                                        object-fit:cover;
-                                                        margin:5px;
-                                                        border-radius:8px;
-                                                    "
-                                                    onerror="
-                                                        this.style.display='none'
-                                                    "
-                                                >
-
-                                            `
-                                        )
-                                        .join("")
-                                }
-
-                            </div>
-
-                          `
-                        : ""
-                }
-
-            `;
-
-        }
-
-
-        if ($("sellModal")) {
-
-            $("sellModal").style.display =
+            modal.style.display =
                 "flex";
 
         }
 
-    };
+
+        const mapping = {
+
+            sellRequestName:
+                request.name ||
+                request.sellerName ||
+                "",
+
+            sellRequestMobile:
+                request.mobile ||
+                request.phone ||
+                request.sellerMobile ||
+                "",
+
+            sellRequestEmail:
+                request.email ||
+                request.sellerEmail ||
+                "",
+
+            sellRequestDevice:
+                request.deviceName ||
+                request.productName ||
+                "",
+
+            sellRequestCondition:
+                request.condition ||
+                "",
+
+            sellRequestPrice:
+                request.expectedPrice ||
+                request.price ||
+                "",
+
+            sellRequestStatus:
+                request.status ||
+                "Pending"
+
+        };
+
+
+        Object.entries(mapping)
+            .forEach(
+                ([id, value]) => {
+
+                    const element =
+                        $(id);
+
+                    if (element) {
+
+                        element.value =
+                            value;
+
+                    }
+
+                }
+            );
+
+};
 
 
 // ============================================================
-// CLOSE SELL MODAL
+// CLOSE SELL REQUEST
 // ============================================================
 
-window.closeSellModal =
+window.closeSellRequest =
     function() {
 
-        if ($("sellModal")) {
+        const modal =
+            $("sellRequestModal");
 
-            $("sellModal").style.display =
+
+        if (modal) {
+
+            modal.style.display =
                 "none";
 
         }
@@ -2438,350 +1844,6 @@ window.closeSellModal =
 
         currentSellRequest =
             null;
-
-    };
-
-
-// ============================================================
-// ACCEPT SELL REQUEST
-// ACCEPT + LAUNCH PRODUCT
-// ============================================================
-
-window.acceptCurrentSell =
-    async function(event) {
-
-        if (event) {
-
-            event.preventDefault();
-            event.stopPropagation();
-
-        }
-
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return false;
-
-        }
-
-
-        if (!currentSellRequest) {
-
-            alert(
-                "No sell request selected."
-            );
-
-            return false;
-
-        }
-
-
-        const request =
-            currentSellRequest;
-
-
-        const key =
-            request.firebaseKey;
-
-
-        if (!key) {
-
-            alert(
-                "Sell request ID not found."
-            );
-
-            return false;
-
-        }
-
-
-        try {
-
-            console.log(
-                "Accepting sell request:",
-                key,
-                request
-            );
-
-
-            // =================================================
-            // CREATE PRODUCT
-            // =================================================
-
-            const productRef =
-                push(
-                    ref(
-                        db,
-                        "products"
-                    )
-                );
-
-
-            const price =
-                Number(
-                    request.price ??
-                    request.expectedPrice ??
-                    0
-                );
-
-
-            const product = {
-
-                name:
-                    request.device ||
-                    request.model ||
-                    request.productName ||
-                    request.name ||
-                    "Used Device",
-
-                brand:
-                    request.brand ||
-                    "",
-
-                category:
-                    request.category ||
-                    "Used Mobile",
-
-                price:
-                    price,
-
-                mrp:
-                    Number(
-                        request.mrp ??
-                        price
-                    ),
-
-                stock:
-                    1,
-
-                image:
-                    request.image ||
-                    (
-                        Array.isArray(
-                            request.images
-                        )
-                            ? request.images[0] ||
-                              ""
-                            : ""
-                    ),
-
-                images:
-                    Array.isArray(
-                        request.images
-                    )
-                        ? request.images
-                        : [],
-
-                ram:
-                    request.ram ||
-                    "",
-
-                rom:
-                    request.rom ||
-                    request.storage ||
-                    "",
-
-                processor:
-                    request.processor ||
-                    "",
-
-                display:
-                    request.display ||
-                    "",
-
-                camera:
-                    request.camera ||
-                    "",
-
-                battery:
-                    request.battery ||
-                    "",
-
-                condition:
-                    request.condition ||
-                    "Used",
-
-                quality:
-                    request.quality ||
-                    "Verification Pending",
-
-                warranty:
-                    request.warranty ||
-                    "",
-
-                sellerRequestId:
-                    key,
-
-                sellerName:
-                    request.sellerName ||
-                    request.name ||
-                    "",
-
-                sellerMobile:
-                    request.contact ||
-                    request.mobile ||
-                    "",
-
-                sellerEmail:
-                    request.email ||
-                    request.userEmail ||
-                    "",
-
-                status:
-                    "approved",
-
-                type:
-                    "seller",
-
-                createdAt:
-                    Date.now(),
-
-                updatedAt:
-                    Date.now()
-
-            };
-
-
-            await set(
-                productRef,
-                product
-            );
-
-
-            console.log(
-                "Product created:",
-                productRef.key
-            );
-
-
-            // =================================================
-            // UPDATE SELL REQUEST
-            // =================================================
-
-            await update(
-                ref(
-                    db,
-                    `sellerRequests/${key}`
-                ),
-                {
-
-                    status:
-                        "Accepted & Launched",
-
-                    productId:
-                        productRef.key,
-
-                    acceptedAt:
-                        Date.now(),
-
-                    launchedAt:
-                        Date.now(),
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            // =================================================
-            // APPROVED SELLER
-            // =================================================
-
-            const approvedSellerRef =
-                push(
-                    ref(
-                        db,
-                        "approvedSellers"
-                    )
-                );
-
-
-            await set(
-                approvedSellerRef,
-                {
-
-                    sellerName:
-                        request.sellerName ||
-                        request.name ||
-                        "",
-
-                    mobile:
-                        request.contact ||
-                        request.mobile ||
-                        "",
-
-                    email:
-                        request.email ||
-                        request.userEmail ||
-                        "",
-
-                    device:
-                        product.name,
-
-                    agreedPrice:
-                        product.price,
-
-                    productId:
-                        productRef.key,
-
-                    sellerRequestId:
-                        key,
-
-                    status:
-                        "active",
-
-                    createdAt:
-                        Date.now()
-
-                }
-            );
-
-
-            // =================================================
-            // SUCCESS
-            // =================================================
-
-            showToast(
-                "Sell request accepted and product launched!"
-            );
-
-
-            currentSellRequest =
-                null;
-
-
-            if ($("sellModal")) {
-
-                $("sellModal").style.display =
-                    "none";
-
-            }
-
-
-            console.log(
-                "Sell request accepted successfully."
-            );
-
-
-            return false;
-
-        } catch (error) {
-
-            console.error(
-                "SELL ACCEPT ERROR:",
-                error
-            );
-
-            firebaseError(error);
-
-            return false;
-
-        }
 
     };
 
@@ -2806,11 +1868,7 @@ window.rejectCurrentSell =
             !currentSellRequest
         ) {
 
-            alert(
-                "No sell request selected."
-            );
-
-            return false;
+            return;
 
         }
 
@@ -2819,15 +1877,13 @@ window.rejectCurrentSell =
             currentSellRequest.firebaseKey;
 
 
-        if (
-            !confirm(
+        const confirmed =
+            confirm(
                 "Reject this sell request?"
-            )
-        ) {
+            );
 
-            return false;
 
-        }
+        if (!confirmed) return;
 
 
         try {
@@ -2835,15 +1891,13 @@ window.rejectCurrentSell =
             await update(
                 ref(
                     db,
-                    `sellerRequests/${key}`
+                    "sellerRequests/" +
+                    key
                 ),
                 {
 
                     status:
                         "Rejected",
-
-                    rejectedAt:
-                        Date.now(),
 
                     updatedAt:
                         Date.now()
@@ -2857,30 +1911,220 @@ window.rejectCurrentSell =
             );
 
 
-            currentSellRequest =
-                null;
+            window.closeSellRequest();
 
 
-            if ($("sellModal")) {
+        } catch (error) {
 
-                $("sellModal").style.display =
-                    "none";
+            firebaseError(error);
 
-            }
+        }
+
+    };
 
 
-            return false;
+// ============================================================
+// ACCEPT & LAUNCH
+// ============================================================
+
+window.acceptCurrentSell =
+    async function(event) {
+
+        if (event) {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+        }
+
+
+        if (
+            !db ||
+            !currentSellRequest
+        ) {
+
+            alert(
+                "No sell request selected."
+            );
+
+            return;
+
+        }
+
+
+        const request =
+            currentSellRequest;
+
+
+        const requestKey =
+            request.firebaseKey;
+
+
+        try {
+
+            const productRef =
+                push(
+                    ref(
+                        db,
+                        "products"
+                    )
+                );
+
+
+            const productId =
+                productRef.key;
+
+
+            const product = {
+
+                name:
+                    request.deviceName ||
+                    request.productName ||
+                    request.name ||
+                    "Used Device",
+
+                brand:
+                    request.brand ||
+                    "",
+
+                category:
+                    request.category ||
+                    "Used Mobile",
+
+                price:
+                    Number(
+                        request.finalPrice ||
+                        request.expectedPrice ||
+                        request.price ||
+                        0
+                    ),
+
+                stock:
+                    Number(
+                        request.stock ||
+                        1
+                    ),
+
+                image:
+                    request.image ||
+                    request.deviceImage ||
+                    "",
+
+                images:
+                    Array.isArray(
+                        request.images
+                    )
+                        ? request.images
+                        : [],
+
+                ram:
+                    request.ram ||
+                    "",
+
+                storage:
+                    request.storage ||
+                    request.rom ||
+                    "",
+
+                specs:
+                    request.specs ||
+                    "",
+
+                condition:
+                    request.condition ||
+                    "",
+
+                quality:
+                    request.quality ||
+                    "",
+
+                warranty:
+                    request.warranty ||
+                    "",
+
+                status:
+                    "approved",
+
+                type:
+                    "seller",
+
+                sellerRequestId:
+                    requestKey,
+
+                sellerName:
+                    request.name ||
+                    request.sellerName ||
+                    "",
+
+                sellerMobile:
+                    request.mobile ||
+                    request.phone ||
+                    request.sellerMobile ||
+                    "",
+
+                sellerEmail:
+                    request.email ||
+                    request.sellerEmail ||
+                    "",
+
+                createdAt:
+                    Date.now(),
+
+                updatedAt:
+                    Date.now()
+
+            };
+
+
+            await set(
+                productRef,
+                product
+            );
+
+
+            await update(
+                ref(
+                    db,
+                    "sellerRequests/" +
+                    requestKey
+                ),
+                {
+
+                    status:
+                        "Accepted & Launched",
+
+                    productId:
+                        productId,
+
+                    acceptedAt:
+                        Date.now(),
+
+                    launchedAt:
+                        Date.now(),
+
+                    updatedAt:
+                        Date.now()
+
+                }
+            );
+
+
+            showToast(
+                "Sell request accepted & product launched."
+            );
+
+
+            window.closeSellRequest();
+
 
         } catch (error) {
 
             console.error(
-                "SELL REJECT ERROR:",
+                "Accept & Launch error:",
                 error
             );
 
             firebaseError(error);
-
-            return false;
 
         }
 
@@ -2891,89 +2135,59 @@ window.rejectCurrentSell =
 // CUSTOMERS
 // ============================================================
 
-function updateCustomers() {
+function loadCustomers() {
 
-    const customersMap =
-        {};
-
-
-    allOrders.forEach(
-        order => {
-
-            const phone =
-                order.mobile ||
-                order.phone ||
-                order.customerPhone ||
-                order.customer?.phone;
+    if (!db) return;
 
 
-            if (!phone) return;
+    onValue(
+        ref(
+            db,
+            "customers"
+        ),
+        snapshot => {
+
+            const data =
+                snapshot.val() || {};
 
 
-            if (!customersMap[phone]) {
+            allCustomers =
+                Object.entries(data)
+                    .map(
+                        ([key, customer]) => ({
 
-                customersMap[phone] = {
+                            firebaseKey:
+                                key,
 
-                    name:
-                        order.customerName ||
-                        order.name ||
-                        order.customer?.name ||
-                        "Customer",
+                            ...customer
 
-                    mobile:
-                        phone,
-
-                    orders:
-                        0,
-
-                    total:
-                        0
-
-                };
-
-            }
+                        })
+                    );
 
 
-            customersMap[phone]
-                .orders++;
+            renderCustomers();
 
+        },
+        error => {
 
-            customersMap[phone]
-                .total +=
-                Number(
-                    order.totalAmount ??
-                    order.total ??
-                    order.amount ??
-                    order.productPrice ??
-                    0
-                );
+            console.error(
+                "Customers error:",
+                error
+            );
 
         }
     );
 
-
-    allCustomers =
-        Object.values(
-            customersMap
-        );
-
-
-    renderCustomers();
-
 }
 
 
-// ============================================================
-// RENDER CUSTOMERS
-// ============================================================
-
 function renderCustomers() {
 
-    const tbody =
+    const container =
         $("customersTable");
 
 
-    if (!tbody) return;
+    if (!container) return;
 
 
     if (
@@ -2981,24 +2195,15 @@ function renderCustomers() {
         0
     ) {
 
-        tbody.innerHTML = `
-
+        container.innerHTML = `
             <tr>
-
                 <td
-                    colspan="4"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
+                    colspan="10"
+                    style="text-align:center;padding:25px;"
                 >
-
                     No customers found.
-
                 </td>
-
             </tr>
-
         `;
 
         return;
@@ -3006,47 +2211,47 @@ function renderCustomers() {
     }
 
 
-    tbody.innerHTML =
+    container.innerHTML =
         allCustomers
-            .map(
-                customer => `
+            .map(customer => `
 
-                    <tr>
+                <tr>
 
-                        <td>
+                    <td>
+                        ${escapeHTML(
+                            customer.name ||
+                            customer.customerName ||
+                            "Customer"
+                        )}
+                    </td>
 
-                            ${escapeHTML(
-                                customer.name
-                            )}
+                    <td>
+                        ${escapeHTML(
+                            customer.email ||
+                            customer.customerEmail ||
+                            ""
+                        )}
+                    </td>
 
-                        </td>
+                    <td>
+                        ${escapeHTML(
+                            customer.phone ||
+                            customer.mobile ||
+                            customer.customerPhone ||
+                            ""
+                        )}
+                    </td>
 
-                        <td>
+                    <td>
+                        ${escapeHTML(
+                            customer.address ||
+                            ""
+                        )}
+                    </td>
 
-                            ${escapeHTML(
-                                customer.mobile
-                            )}
+                </tr>
 
-                        </td>
-
-                        <td>
-
-                            ${customer.orders}
-
-                        </td>
-
-                        <td>
-
-                            ${formatMoney(
-                                customer.total
-                            )}
-
-                        </td>
-
-                    </tr>
-
-                `
-            )
+            `)
             .join("");
 
 }
@@ -3056,36 +2261,27 @@ function renderCustomers() {
 // TRACKING
 // ============================================================
 
-window.addTrackingUpdate =
+window.saveTrackingStatus =
     async function() {
 
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
+        if (!db) return;
 
 
         const orderId =
             $("trackingOrderId")
                 ?.value
-                ?.trim();
+                ?.trim() || "";
 
 
         const status =
             $("trackingStatus")
-                ?.value
-                ?.trim();
+                ?.value || "";
 
 
         const message =
             $("trackingMessage")
                 ?.value
-                ?.trim();
+                ?.trim() || "";
 
 
         if (!orderId) {
@@ -3099,87 +2295,25 @@ window.addTrackingUpdate =
         }
 
 
-        if (!status) {
-
-            alert(
-                "Enter tracking status."
-            );
-
-            return;
-
-        }
-
-
-        const order =
-            allOrders.find(
-                item =>
-
-                    item.firebaseKey ===
-                    orderId ||
-
-                    item.orderId ===
-                    orderId ||
-
-                    item.id ===
-                    orderId
-            );
-
-
-        if (!order) {
-
-            alert(
-                "Order not found.\n\n" +
-                "Make sure the Order ID is correct."
-            );
-
-            return;
-
-        }
-
-
         try {
 
-            await update(
-                ref(
-                    db,
-                    `orders/${order.firebaseKey}`
-                ),
-                {
-
-                    status:
-                        status,
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            const timeline =
+            const trackingRef =
                 push(
                     ref(
                         db,
-                        `orders/${order.firebaseKey}/trackingTimeline`
+                        "tracking/" +
+                        orderId
                     )
                 );
 
 
             await set(
-                timeline,
+                trackingRef,
                 {
 
-                    status:
-                        status,
+                    status,
 
-                    label:
-                        status,
-
-                    message:
-                        message,
-
-                    note:
-                        message,
+                    message,
 
                     timestamp:
                         Date.now()
@@ -3189,23 +2323,11 @@ window.addTrackingUpdate =
 
 
             showToast(
-                "Tracking update added."
+                "Tracking status saved."
             );
 
 
-            if ($("trackingOrderId"))
-                $("trackingOrderId").value =
-                    "";
-
-
-            if ($("trackingMessage"))
-                $("trackingMessage").value =
-                    "";
-
-
         } catch (error) {
-
-            console.error(error);
 
             firebaseError(error);
 
@@ -3215,7 +2337,7 @@ window.addTrackingUpdate =
 
 
 // ============================================================
-// GOOGLE MAPS
+// MAP SETTINGS
 // ============================================================
 
 function loadMapSettings() {
@@ -3226,7 +2348,7 @@ function loadMapSettings() {
     onValue(
         ref(
             db,
-            "storeLocation"
+            "mapSettings"
         ),
         snapshot => {
 
@@ -3234,29 +2356,19 @@ function loadMapSettings() {
                 snapshot.val() || {};
 
 
-            if ($("mapLat"))
-                $("mapLat").value =
-                    data.lat || "";
+            if ($("mapUrl"))
+                $("mapUrl").value =
+                    data.mapUrl || "";
 
 
-            if ($("mapLng"))
-                $("mapLng").value =
-                    data.lng || "";
+            if ($("mapEmbed"))
+                $("mapEmbed").value =
+                    data.mapEmbed || "";
 
 
-            if ($("mapFrame"))
-                $("mapFrame").value =
-                    data.mapFrame ||
-                    data.mapUrl ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Map listener error:",
-                error
-            );
+            if ($("mapAddress"))
+                $("mapAddress").value =
+                    data.address || "";
 
         }
     );
@@ -3264,36 +2376,10 @@ function loadMapSettings() {
 }
 
 
-window.saveMapLocation =
+window.saveMapSettings =
     async function() {
 
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        const lat =
-            $("mapLat")
-                ?.value
-                ?.trim() || "";
-
-
-        const lng =
-            $("mapLng")
-                ?.value
-                ?.trim() || "";
-
-
-        const mapFrame =
-            $("mapFrame")
-                ?.value
-                ?.trim() || "";
+        if (!db) return;
 
 
         try {
@@ -3301,18 +2387,21 @@ window.saveMapLocation =
             await set(
                 ref(
                     db,
-                    "storeLocation"
+                    "mapSettings"
                 ),
                 {
 
-                    lat:
-                        lat,
+                    mapUrl:
+                        $("mapUrl")
+                            ?.value || "",
 
-                    lng:
-                        lng,
+                    mapEmbed:
+                        $("mapEmbed")
+                            ?.value || "",
 
-                    mapFrame:
-                        mapFrame,
+                    address:
+                        $("mapAddress")
+                            ?.value || "",
 
                     updatedAt:
                         Date.now()
@@ -3322,13 +2411,11 @@ window.saveMapLocation =
 
 
             showToast(
-                "Map location saved."
+                "Google Maps settings saved."
             );
 
 
         } catch (error) {
-
-            console.error(error);
 
             firebaseError(error);
 
@@ -3349,7 +2436,7 @@ function loadHomepage() {
     onValue(
         ref(
             db,
-            "homepageSettings"
+            "homepage"
         ),
         snapshot => {
 
@@ -3357,38 +2444,19 @@ function loadHomepage() {
                 snapshot.val() || {};
 
 
-            if ($("hpAnnouncement"))
-                $("hpAnnouncement").value =
-                    data.announcement || "";
+            if ($("homeTitle"))
+                $("homeTitle").value =
+                    data.title || "";
 
 
-            if ($("hpHeadline"))
-                $("hpHeadline").value =
-                    data.headline ||
-                    data.heroHeadline ||
-                    "";
+            if ($("homeSubtitle"))
+                $("homeSubtitle").value =
+                    data.subtitle || "";
 
 
-            if ($("hpSubtitle"))
-                $("hpSubtitle").value =
-                    data.subtitle ||
-                    data.heroSubtitle ||
-                    "";
-
-
-            if ($("hpImage"))
-                $("hpImage").value =
-                    data.image ||
-                    data.heroImage ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Homepage listener error:",
-                error
-            );
+            if ($("homeBanner"))
+                $("homeBanner").value =
+                    data.banner || "";
 
         }
     );
@@ -3399,15 +2467,7 @@ function loadHomepage() {
 window.saveHomepage =
     async function() {
 
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
+        if (!db) return;
 
 
         try {
@@ -3415,24 +2475,20 @@ window.saveHomepage =
             await set(
                 ref(
                     db,
-                    "homepageSettings"
+                    "homepage"
                 ),
                 {
 
-                    announcement:
-                        $("hpAnnouncement")
-                            ?.value || "",
-
-                    headline:
-                        $("hpHeadline")
+                    title:
+                        $("homeTitle")
                             ?.value || "",
 
                     subtitle:
-                        $("hpSubtitle")
+                        $("homeSubtitle")
                             ?.value || "",
 
-                    image:
-                        $("hpImage")
+                    banner:
+                        $("homeBanner")
                             ?.value || "",
 
                     updatedAt:
@@ -3448,8 +2504,6 @@ window.saveHomepage =
 
 
         } catch (error) {
-
-            console.error(error);
 
             firebaseError(error);
 
@@ -3480,29 +2534,19 @@ function loadDelivery() {
 
             if ($("deliveryCharge"))
                 $("deliveryCharge").value =
-                    data.charge || 0;
+                    data.charge ?? "";
+
+
+            if ($("deliveryTime"))
+                $("deliveryTime").value =
+                    data.time || "";
 
 
             if ($("freeDelivery"))
-                $("freeDelivery").value =
-                    data.freeDelivery ??
-                    data.freeThreshold ??
-                    0;
-
-
-            if ($("deliveryDays"))
-                $("deliveryDays").value =
-                    data.days ||
-                    data.deliveryDays ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Delivery listener error:",
-                error
-            );
+                $("freeDelivery").checked =
+                    Boolean(
+                        data.freeDelivery
+                    );
 
         }
     );
@@ -3513,15 +2557,7 @@ function loadDelivery() {
 window.saveDelivery =
     async function() {
 
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
+        if (!db) return;
 
 
         try {
@@ -3539,15 +2575,15 @@ window.saveDelivery =
                                 ?.value || 0
                         ),
 
-                    freeDelivery:
-                        Number(
-                            $("freeDelivery")
-                                ?.value || 0
-                        ),
-
-                    days:
-                        $("deliveryDays")
+                    time:
+                        $("deliveryTime")
                             ?.value || "",
+
+                    freeDelivery:
+                        Boolean(
+                            $("freeDelivery")
+                                ?.checked
+                        ),
 
                     updatedAt:
                         Date.now()
@@ -3562,8 +2598,6 @@ window.saveDelivery =
 
 
         } catch (error) {
-
-            console.error(error);
 
             firebaseError(error);
 
@@ -3594,37 +2628,22 @@ function loadWebsiteSettings() {
 
             if ($("siteTitle"))
                 $("siteTitle").value =
-                    data.siteTitle ||
-                    data.title ||
-                    "";
+                    data.siteTitle || "";
 
 
             if ($("logoUrl"))
                 $("logoUrl").value =
-                    data.logoUrl ||
-                    "";
+                    data.logoUrl || "";
 
 
             if ($("facebookUrl"))
                 $("facebookUrl").value =
-                    data.facebookUrl ||
-                    data.facebook ||
-                    "";
+                    data.facebookUrl || "";
 
 
             if ($("instagramUrl"))
                 $("instagramUrl").value =
-                    data.instagramUrl ||
-                    data.instagram ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Website settings listener error:",
-                error
-            );
+                    data.instagramUrl || "";
 
         }
     );
@@ -3635,15 +2654,7 @@ function loadWebsiteSettings() {
 window.saveWebsiteSettings =
     async function() {
 
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
+        if (!db) return;
 
 
         try {
@@ -3684,8 +2695,6 @@ window.saveWebsiteSettings =
 
 
         } catch (error) {
-
-            console.error(error);
 
             firebaseError(error);
 
@@ -3758,10 +2767,6 @@ function updateDashboard() {
 }
 
 
-// ============================================================
-// RECENT ORDERS
-// ============================================================
-
 function renderRecentOrders() {
 
     const container =
@@ -3811,9 +2816,7 @@ function renderRecentOrders() {
 
                         </strong>
 
-
                         <br>
-
 
                         <small>
 
@@ -3825,9 +2828,7 @@ function renderRecentOrders() {
 
                         </small>
 
-
                         <br>
-
 
                         <span>
 
@@ -3841,9 +2842,7 @@ function renderRecentOrders() {
 
                         </span>
 
-
                         <br>
-
 
                         <small>
 
@@ -3891,6 +2890,8 @@ function startFirebaseListeners() {
 
     loadSellerRequests();
 
+    loadCustomers();
+
     loadServices();
 
     loadMapSettings();
@@ -3907,6 +2908,39 @@ function startFirebaseListeners() {
     );
 
 }
+
+
+// ============================================================
+// SEARCH LISTENERS
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        if ($("productSearch")) {
+
+            $("productSearch")
+                .addEventListener(
+                    "input",
+                    renderProducts
+                );
+
+        }
+
+
+        if ($("productFilter")) {
+
+            $("productFilter")
+                .addEventListener(
+                    "change",
+                    renderProducts
+                );
+
+        }
+
+    }
+);
 
 
 // ============================================================
