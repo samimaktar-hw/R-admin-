@@ -1,3939 +1,492 @@
-// ============================================================
-// RITTIK MOBILE SHOP - ADMIN PANEL
-// Firebase Realtime Database
-// LOGIN DISABLED FOR NOW
-// ============================================================
+#!/usr/bin/env python3
+"""
+HEXCAWEB - OSINT LAB (Termux Edition)
+---------------------------------------------
+Enter a phone number -> full dossier appears (name, operator, circle, emails,
+addresses, social profiles, devices, breaches, exposure score, related people).
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+DISCLAIMER: ONLY FOR DUMMY DATA & EDUCATIONAL PURPOSE. Every person in
+hexcaweb_osint.db is invented. Never use OSINT on real people without consent.
 
-import {
-    getAuth,
-    signInWithEmailAndPassword,
-    onAuthStateChanged,
-    signOut
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+Setup (Termux):
+    pkg update && pkg install python -y
+    python hexcaweb_osint_termux.py            # full animation
+    python hexcaweb_osint_termux_v2.py --fast     # skip animation
+Keep hexcaweb_osint.db in the same folder.
+"""
+import csv
+import os
+import random
+import re
+import shutil
+import sqlite3
+import sys
+import time
 
-import {
-    getDatabase,
-    ref,
-    onValue,
-    set,
-    update,
-    push,
-    remove
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+BRAND = "HEXCAWEB"
+DISCLAIMER = "ONLY FOR DUMMY DATA & EDUCATIONAL PURPOSE"
+HERE = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(HERE, "hexcaweb_osint.db")
+FAST = "--fast" in sys.argv or os.environ.get("HEXCAWEB_FAST") == "1"
 
+G, LG, C, R, Y, D, B, X = ("\033[32m", "\033[92m", "\033[96m", "\033[91m",
+                           "\033[93m", "\033[2m", "\033[1m", "\033[0m")
+W = max(36, min(shutil.get_terminal_size((50, 24)).columns - 1, 62))
 
-// ============================================================
-// FIREBASE CONFIG
-// ============================================================
 
-const firebaseConfig = {
+# ------------------------------------------------------------ helpers
+def nap(t):
+    if not FAST:
+        time.sleep(t)
 
-    apiKey:
-        "AIzaSyBIddmdEKtGl0OI97ky6Q3JJBs2dOzbnbA",
+
+def out(s="", end="\n"):
+    sys.stdout.write(s + end)
+    sys.stdout.flush()
 
-    databaseURL:
-        "https://rittik-mobile-shop-web-1-default-rtdb.firebaseio.com",
 
-    projectId:
-        "rittik-mobile-shop-web-1"
-};
+def clear():
+    out("\033[2J\033[H", end="")
 
 
-// ============================================================
-// FIREBASE INITIALIZE
-// ============================================================
+def fit(s, n):
+    s = "-" if s is None else str(s)
+    return s if len(s) <= n else s[: n - 1] + "~"
 
-let app = null;
-let db = null;
-let auth = null;
 
-try {
+def typewriter(text, color=LG, delay=0.008):
+    for ch in text:
+        out(color + ch + X, end="")
+        nap(delay)
+    out()
 
-    app = initializeApp(
-        firebaseConfig,
-        "RittikAdminPanel"
-    );
 
-    db = getDatabase(app);
-    auth = getAuth(app);
+def fmt_phone(n, cc="+91"):
+    return f"{cc} {n[:5]} {n[5:]}"
 
-    console.log(
-        "Firebase Admin connected successfully."
-    );
 
-} catch (error) {
+def normalize_number(s):
+    digits = re.sub(r"\D", "", s)
+    if len(digits) > 10 and digits.startswith("91"):
+        digits = digits[2:]
+    return digits[-10:] if len(digits) >= 10 else digits
 
-    console.error(
-        "Firebase initialization failed:",
-        error
-    );
 
-    alert(
-        "Firebase connection failed.\n\n" +
-        error.message
-    );
+# ------------------------------------------------------------ visuals
+LOGO = [
+    "█ █ █▀▀ ▀█▀ █▀▀ ▄▀█   █ █ █▀▀ █▄▄",
+    "█▀█ ██▄  █  █▄▄ █▀█   █▀█ ██▄ █▄█"
+]
 
-}
+SUB = "H E X C A   W E B"
 
+def matrix_rain(frames=16):
+    chars = "01ABCDEF<>/\\|=+*#$%&@"
+    for _ in range(frames):
+        out("".join((random.choice([LG, G, D + G]) + random.choice(chars) + X)
+                    if random.random() < 0.35 else " " for _ in range(W)))
+        nap(0.045)
 
-// ============================================================
-// GLOBAL DATA
-// ============================================================
-
-let allProducts = [];
-let allOrders = [];
-let allSellerRequests = [];
-let allCustomers = [];
-
-let currentSellRequest = null;
-
-
-// ============================================================
-// HELPER
-// ============================================================
-
-function $(id) {
-    return document.getElementById(id);
-}
-
-
-function escapeHTML(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-        return "";
-    }
-
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-
-function formatMoney(value) {
-
-    const number =
-        Number(value || 0);
-
-    return (
-        "₹ " +
-        number.toLocaleString("en-IN")
-    );
-}
-
-
-function showToast(message) {
-
-    let toast =
-        $("adminToast");
-
-    if (!toast) {
-
-        toast =
-            document.createElement("div");
-
-        toast.id =
-            "adminToast";
-
-        toast.style.position =
-            "fixed";
-
-        toast.style.bottom =
-            "25px";
-
-        toast.style.right =
-            "25px";
-
-        toast.style.zIndex =
-            "999999";
-
-        toast.style.padding =
-            "14px 20px";
-
-        toast.style.background =
-            "#111";
-
-        toast.style.color =
-            "#00ff88";
-
-        toast.style.border =
-            "1px solid #00ff88";
-
-        toast.style.borderRadius =
-            "8px";
-
-        toast.style.fontWeight =
-            "600";
-
-        toast.style.boxShadow =
-            "0 0 20px rgba(0,255,136,.25)";
-
-        document.body.appendChild(
-            toast
-        );
-    }
-
-    toast.textContent =
-        message;
-
-    toast.style.display =
-        "block";
-
-    clearTimeout(
-        window.__toastTimer
-    );
-
-    window.__toastTimer =
-        setTimeout(() => {
-
-            toast.style.display =
-                "none";
-
-        }, 3000);
-}
-
-
-function firebaseError(error) {
-
-    console.error(
-        "Firebase error:",
-        error
-    );
-
-    if (
-        error &&
-        (
-            error.code ===
-            "PERMISSION_DENIED" ||
-            String(error.message)
-                .toLowerCase()
-                .includes("permission")
-        )
-    ) {
-
-        alert(
-            "Firebase Permission Denied.\n\n" +
-            "Database Rules are blocking this action."
-        );
-
-    } else {
-
-        alert(
-            "Firebase Error:\n\n" +
-            (error?.message ||
-                "Unknown error")
-        );
-
-    }
-}
-
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-
-window.openSection = function(sectionName, event) {
-
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-
-    const target = document.getElementById(sectionName);
-    if (!target) {
-        console.error("Admin section not found:", sectionName);
-        showToast("Section not found: " + sectionName);
-        return false;
-    }
-
-    // Hide every admin page section
-    document.querySelectorAll(".section").forEach(section => {
-        section.classList.remove("active");
-        section.style.display = "none";
-    });
-
-    // Show selected section
-    target.classList.add("active");
-    target.style.display = "block";
-
-    // Active sidebar button
-    document.querySelectorAll(".nav-btn").forEach(btn => {
-        btn.classList.remove("active");
-    });
-
-    const nav = document.querySelector(
-        `.nav-btn[data-section="${CSS.escape(sectionName)}"]`
-    );
-    if (nav) nav.classList.add("active");
-
-    // Update page title
-    const titles = {
-        dashboard: "Dashboard",
-        services: "Our Services",
-        products: "Products",
-        orders: "Orders",
-        sells: "Sell Requests",
-        customers: "Customers",
-        tracking: "Tracking Status",
-        maps: "Google Maps",
-        homepage: "Homepage Control",
-        delivery: "Delivery Settings",
-        settings: "Website Settings"
-    };
-
-    const title = document.getElementById("pageTitle");
-    if (title) title.textContent = titles[sectionName] || sectionName;
-
-    // Close mobile sidebar
-    const sidebar = document.querySelector(".sidebar");
-    if (sidebar) sidebar.classList.remove("open");
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    return false;
-};
-
-window.switchAdminSection = window.openSection;
-
-// ============================================================
-// SERVICES
-// ============================================================
-
-function loadServices() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(db, "services"),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            if ($("serviceBuy"))
-                $("serviceBuy").checked =
-                    data.buy !== false && data.buy !== "false";
-
-
-            if ($("serviceSell"))
-                $("serviceSell").checked =
-                    data.sell !== false && data.sell !== "false";
-
-
-            if ($("serviceTracking"))
-                $("serviceTracking").checked =
-                    data.tracking !== false && data.tracking !== "false";
-
-
-            if ($("serviceVerification"))
-                $("serviceVerification").checked =
-                    data.verification !== false && data.verification !== "false";
-
-        },
-        error => {
-
-            console.error(
-                "Services listener error:",
-                error
-            );
-
-        }
-    );
-
-}
-
-
-window.saveServices =
-    async function() {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await set(
-                ref(db, "services"),
-                {
-
-                    buy:
-                        $("serviceBuy")?.checked ?? false,
-
-                    sell:
-                        $("serviceSell")?.checked ?? false,
-
-                    tracking:
-                        $("serviceTracking")?.checked ?? false,
-
-                    verification:
-                        $("serviceVerification")?.checked ?? false,
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Services saved successfully."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// PRODUCTS
-// ============================================================
-
-function loadProducts() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(db, "products"),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            allProducts =
-                Object.entries(data)
-                    .map(
-                        ([key, product]) => ({
-
-                            firebaseKey:
-                                key,
-
-                            ...product
-
-                        })
-                    );
-
-
-            renderProducts();
-
-            updateDashboard();
-
-        },
-        error => {
-
-            console.error(
-                "Products listener error:",
-                error
-            );
-
-            firebaseError(error);
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// RENDER PRODUCTS
-// ============================================================
-
-function renderProducts() {
-
-    const tbody =
-        $("productsTable");
-
-
-    if (!tbody) return;
-
-
-    const search =
-        (
-            $("productSearch")
-                ?.value || ""
-        )
-            .toLowerCase()
-            .trim();
-
-
-    const filter =
-        $("productFilter")
-            ?.value || "all";
-
-
-    const products =
-        allProducts.filter(
-            product => {
-
-                const name =
-                    String(
-                        product.name ||
-                        ""
-                    ).toLowerCase();
-
-
-                const brand =
-                    String(
-                        product.brand ||
-                        ""
-                    ).toLowerCase();
-
-
-                const matchesSearch =
-                    !search ||
-                    name.includes(search) ||
-                    brand.includes(search);
-
-
-                let matchesFilter =
-                    true;
-
-
-                if (
-                    filter !==
-                    "all"
-                ) {
-
-                    matchesFilter =
-                        String(
-                            product.status ||
-                            ""
-                        ).toLowerCase() ===
-                        filter.toLowerCase();
-
-                }
-
-
-                return (
-                    matchesSearch &&
-                    matchesFilter
-                );
-
-            }
-        );
-
-
-    if (products.length === 0) {
-
-        tbody.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="10"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
-                >
-
-                    No products found.
-
-                </td>
-
-            </tr>
-
-        `;
-
-        return;
-
+
+def glitch(text, p):
+    return "".join(random.choice("#@%&$?!/\\") if (ch != " " and random.random() < p) else ch for ch in text)
+
+
+def logo(animated=True, color=LG):
+    def draw(p):
+        for l in LOGO:
+            out(" " * ((W - len(l)) // 2) + color + B + glitch(l, p) + X)
+        out(" " * max(0, (W - len(SUB)) // 2) + C + glitch(SUB, p / 2) + X)
+
+    if animated and not FAST:
+        for p in (0.8, 0.6, 0.4, 0.25, 0.1, 0.03):
+            clear()
+            draw(p)
+            nap(0.09)
+    clear()
+    draw(0)
+
+
+def spinner(label, secs=0.4):
+    frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    end = time.time() + (0 if FAST else secs)
+    i = 0
+    while time.time() < end:
+        out(f"\r {C}{frames[i % len(frames)]}{X} {label}", end="")
+        i += 1
+        nap(0.06)
+    out(f"\r {LG}[ OK ]{X} {label}".ljust(W + 12))
+
+
+def bar(pct, color=LG):
+    width = W - 14
+    f = int(width * pct / 100)
+    return f"{color}{'█' * f}{D}{'░' * (width - f)}{X} {pct:3d}%"
+
+
+def animate_bar(pct, color=LG):
+    steps = 0 if FAST else 12
+    for i in range(1, steps + 1):
+        out("\r " + bar(int(pct * i / steps), color), end="")
+        nap(0.03)
+    out("\r " + bar(pct, color))
+
+
+def box(title, rows):
+    inner = W - 2
+    t = f" {title} "
+    out(f"{G}┌─{LG}{B}{t}{X}{G}{'─' * max(0, inner - len(t) - 1)}┐{X}")
+    for text, color in rows:
+        out(f"{G}│{X} {color}{fit(text, inner - 2).ljust(inner - 2)}{X} {G}│{X}")
+    out(f"{G}└{'─' * inner}┘{X}")
+
+
+def footer():
+    out(f"{R}{B}{('! ' + DISCLAIMER + ' !').center(W)}{X}")
+
+
+def header():
+    clear()
+    logo(False)
+    footer()
+    out(f"{G}{'─' * W}{X}")
+
+
+def prompt(label="hexcaweb@osint"):
+    try:
+        return input(f"{LG}{label}{X}{D}:~${X} ").strip()
+    except EOFError:
+        raise KeyboardInterrupt
+
+
+# ------------------------------------------------------------ database
+def connect():
+    if not os.path.exists(DB_FILE):
+        out(f"{R}[!] hexcaweb_osint.db not found next to this script.{X}\n    Expected: {DB_FILE}")
+        sys.exit(1)
+    db = sqlite3.connect(DB_FILE)
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA foreign_keys = ON")
+    return db
+
+
+BASE = """SELECT p.person_id, p.full_name, ph.number AS phone, c.name AS city
+          FROM persons p
+          JOIN phones ph ON ph.person_id = p.person_id AND ph.is_primary = 1
+          LEFT JOIN addresses a ON a.person_id = p.person_id AND a.address_type = 'Home'
+          LEFT JOIN cities c ON c.city_id = a.city_id"""
+
+
+def find(db, kind, term):
+    like = f"%{term}%"
+    if kind == "name":
+        sql, args = BASE + " WHERE p.full_name LIKE ? LIMIT 200", (like,)
+    elif kind == "email":
+        sql = BASE + " JOIN emails e ON e.person_id = p.person_id WHERE e.email LIKE ? GROUP BY p.person_id LIMIT 200"
+        args = (like,)
+    elif kind == "handle":
+        sql = BASE + " JOIN social_profiles s ON s.person_id = p.person_id WHERE s.handle LIKE ? GROUP BY p.person_id LIMIT 200"
+        args = (like,)
+    elif kind == "city":
+        sql, args = BASE + " WHERE c.name LIKE ? LIMIT 200", (like,)
+    else:  # phone (partial)
+        sql = BASE + " JOIN phones x ON x.person_id = p.person_id WHERE x.number LIKE ? GROUP BY p.person_id LIMIT 200"
+        args = (like,)
+    return db.execute(sql, args).fetchall()
+
+
+def phone_owner(db, number):
+    r = db.execute("SELECT person_id FROM phones WHERE number = ?", (number,)).fetchone()
+    return r["person_id"] if r else None
+
+
+def log_search(db, query, kind, hits):
+    db.execute("INSERT INTO search_logs(query, search_type, hits) VALUES(?,?,?)", (query, kind, hits))
+    db.commit()
+
+
+def load(db, pid):
+    q = lambda sql: db.execute(sql, (pid,)).fetchall()
+    return {
+        "p": db.execute("SELECT * FROM persons WHERE person_id=?", (pid,)).fetchone(),
+        "phones": q("""SELECT ph.*, o.name op, tc.name circle FROM phones ph
+                       JOIN operators o ON o.operator_id=ph.operator_id
+                       JOIN telecom_circles tc ON tc.circle_id=ph.circle_id
+                       WHERE ph.person_id=? ORDER BY ph.is_primary DESC"""),
+        "emails": q("SELECT * FROM emails WHERE person_id=? ORDER BY is_primary DESC"),
+        "addrs": q("""SELECT a.*, c.name city, s.name state FROM addresses a
+                      JOIN cities c ON c.city_id=a.city_id JOIN states s ON s.state_id=c.state_id
+                      WHERE a.person_id=?"""),
+        "social": q("SELECT * FROM social_profiles WHERE person_id=?"),
+        "job": db.execute("SELECT * FROM employment WHERE person_id=?", (pid,)).fetchone(),
+        "devs": q("SELECT * FROM devices WHERE person_id=?"),
+        "breach": q("""SELECT b.name, b.breach_date, b.category, e.leaked_fields FROM breach_exposures e
+                       JOIN breaches b ON b.breach_id=e.breach_id WHERE e.person_id=?"""),
     }
 
 
-    tbody.innerHTML =
-        products
-            .map(product => {
-
-                const image =
-                    product.image ||
-                    product.imageUrl ||
-                    (
-                        Array.isArray(
-                            product.images
-                        )
-                            ? product.images[0]
-                            : ""
-                    );
-
-
-                return `
-
-                    <tr>
-
-                        <td>
-
-                            ${
-                                image
-                                    ? `
-                                        <img
-                                            src="${escapeHTML(image)}"
-                                            style="
-                                                width:55px;
-                                                height:55px;
-                                                object-fit:cover;
-                                                border-radius:8px;
-                                            "
-                                            onerror="
-                                                this.style.display='none'
-                                            "
-                                        >
-                                      `
-                                    : "—"
-                            }
-
-                        </td>
-
-
-                        <td>
-
-                            <strong>
-
-                                ${escapeHTML(
-                                    product.name ||
-                                    "Unnamed"
-                                )}
-
-                            </strong>
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                product.brand ||
-                                "—"
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                product.category ||
-                                "—"
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${formatMoney(
-                                product.price
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${product.stock ?? 0}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                product.status ||
-                                "approved"
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            <button
-                                type="button"
-                                onclick="
-                                    editProduct(
-                                        '${escapeHTML(
-                                            product.firebaseKey
-                                        )}'
-                                    )
-                                "
-                            >
-
-                                Edit
-
-                            </button>
-
-
-                            <button
-                                type="button"
-                                onclick="
-                                    deleteProduct(
-                                        '${escapeHTML(
-                                            product.firebaseKey
-                                        )}'
-                                    )
-                                "
-                                style="color:red;"
-                            >
-
-                                Delete
-
-                            </button>
-
-                        </td>
-
-                    </tr>
-
-                `;
-
-            })
-            .join("");
-
-}
-
-
-// ============================================================
-// PRODUCT SEARCH
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        if ($("productSearch")) {
-
-            $("productSearch")
-                .addEventListener(
-                    "input",
-                    renderProducts
-                );
-
-        }
-
-
-        if ($("productFilter")) {
-
-            $("productFilter")
-                .addEventListener(
-                    "change",
-                    renderProducts
-                );
-
-        }
-
-    }
-);
-
-
-// ============================================================
-// OPEN PRODUCT MODAL
-// ============================================================
-
-window.openProductModal =
-    function(
-        productKey = null
-    ) {
-
-        const modal =
-            $("productModal");
-
-
-        if (!modal) {
-
-            alert(
-                "Product modal not found in index.html."
-            );
-
-            return;
-
-        }
-
-
-        const form =
-            modal.querySelector(
-                "form"
-            );
-
-
-        if (form) {
-
-            form.reset();
-
-        }
-
-
-        if ($("editProductKey")) {
-
-            $("editProductKey").value =
-                "";
-
-        }
-
-
-        if ($("productModalTitle")) {
-
-            $("productModalTitle")
-                .textContent =
-                productKey
-                    ? "Edit Product"
-                    : "Add New Product";
-
-        }
-
-
-        if (productKey) {
-
-            const product =
-                allProducts.find(
-                    item =>
-                        item.firebaseKey ===
-                        productKey
-                );
-
-
-            if (product) {
-
-                fillProductForm(
-                    product
-                );
-
-            }
-
-        }
-
-
-        modal.style.display =
-            "flex";
-
-    };
-
-
-window.openAddProductModal =
-    window.openProductModal;
-
-
-// ============================================================
-// CLOSE PRODUCT MODAL
-// ============================================================
-
-window.closeProductModal =
-    function() {
-
-        const modal =
-            $("productModal");
-
-
-        if (modal) {
-
-            modal.style.display =
-                "none";
-
-        }
-
-    };
-
-
-// ============================================================
-// FILL PRODUCT FORM
-// ============================================================
-
-function fillProductForm(
-    product
-) {
-
-    if ($("editProductKey"))
-        $("editProductKey").value =
-            product.firebaseKey || "";
-
-
-    if ($("pName"))
-        $("pName").value =
-            product.name || "";
-
-
-    if ($("pBrand"))
-        $("pBrand").value =
-            product.brand || "";
-
-
-    if ($("pCategory"))
-        $("pCategory").value =
-            product.category || "";
-
-
-    if ($("pPrice"))
-        $("pPrice").value =
-            product.price || "";
-
-
-    if ($("pMrp"))
-        $("pMrp").value =
-            product.mrp || "";
-
-
-    if ($("pStock"))
-        $("pStock").value =
-            product.stock || 0;
-
-
-    if ($("pRam"))
-        $("pRam").value =
-            product.ram ||
-            product.RAM ||
-            "";
-
-
-    if ($("pRom"))
-        $("pRom").value =
-            product.rom ||
-            product.ROM ||
-            product.storage ||
-            "";
-
-
-    if ($("pProcessor"))
-        $("pProcessor").value =
-            product.processor || "";
-
-
-    if ($("pDisplay"))
-        $("pDisplay").value =
-            product.display || "";
-
-
-    if ($("pCamera"))
-        $("pCamera").value =
-            product.camera || "";
-
-
-    if ($("pBattery"))
-        $("pBattery").value =
-            product.battery || "";
-
-
-    if ($("pCondition"))
-        $("pCondition").value =
-            product.condition || "";
-
-
-    if ($("pQuality"))
-        $("pQuality").value =
-            product.quality || "";
-
-
-    if ($("pWarranty"))
-        $("pWarranty").value =
-            product.warranty || "";
-
-
-    if ($("pImage"))
-        $("pImage").value =
-            product.image ||
-            product.imageUrl ||
-            (
-                Array.isArray(
-                    product.images
-                )
-                    ? product.images[0]
-                    : ""
-            );
-
-
-    if ($("pHighlights"))
-        $("pHighlights").value =
-            typeof product.highlights ===
-            "string"
-                ? product.highlights
-                : "";
-
-}
-
-
-// ============================================================
-// SAVE PRODUCT
-// ============================================================
-
-async function saveProduct(
-    event
-) {
-
-    if (event) {
-
-        event.preventDefault();
-        event.stopPropagation();
-
-    }
-
-
-    if (!db) {
-
-        alert(
-            "Firebase is not connected."
-        );
-
-        return false;
-
-    }
-
-
-    const productKey =
-        $("editProductKey")
-            ?.value || "";
-
-
-    const name =
-        $("pName")
-            ?.value
-            ?.trim() || "";
-
-
-    const price =
-        Number(
-            $("pPrice")
-                ?.value || 0
-        );
-
-
-    const mrp =
-        Number(
-            $("pMrp")
-                ?.value || 0
-        );
-
-
-    const stock =
-        Number(
-            $("pStock")
-                ?.value || 0
-        );
-
-
-    if (!name) {
-
-        alert(
-            "Please enter product name."
-        );
-
-        return false;
-
-    }
-
-
-    if (price <= 0) {
-
-        alert(
-            "Please enter product price."
-        );
-
-        return false;
-
-    }
-
-
-    const productData = {
-
-        name:
-            name,
-
-        brand:
-            $("pBrand")
-                ?.value
-                ?.trim() || "",
-
-        category:
-            $("pCategory")
-                ?.value
-                ?.trim() || "",
-
-        price:
-            price,
-
-        mrp:
-            mrp,
-
-        stock:
-            stock,
-
-        ram:
-            $("pRam")
-                ?.value
-                ?.trim() || "",
-
-        rom:
-            $("pRom")
-                ?.value
-                ?.trim() || "",
-
-        processor:
-            $("pProcessor")
-                ?.value
-                ?.trim() || "",
-
-        display:
-            $("pDisplay")
-                ?.value
-                ?.trim() || "",
-
-        camera:
-            $("pCamera")
-                ?.value
-                ?.trim() || "",
-
-        battery:
-            $("pBattery")
-                ?.value
-                ?.trim() || "",
-
-        condition:
-            $("pCondition")
-                ?.value
-                ?.trim() || "",
-
-        quality:
-            $("pQuality")
-                ?.value
-                ?.trim() || "",
-
-        warranty:
-            $("pWarranty")
-                ?.value
-                ?.trim() || "",
-
-        image:
-            $("pImage")
-                ?.value
-                ?.trim() || "",
-
-        highlights:
-            $("pHighlights")
-                ?.value
-                ?.trim() || "",
-
-        status:
-            "approved",
-
-        updatedAt:
-            Date.now()
-
-    };
-
-
-    try {
-
-        if (productKey) {
-
-            await update(
-                ref(
-                    db,
-                    `products/${productKey}`
-                ),
-                productData
-            );
-
-
-            showToast(
-                "Product updated successfully."
-            );
-
-        } else {
-
-            productData.createdAt =
-                Date.now();
-
-            productData.type =
-                "admin";
-
-
-            const newProduct =
-                push(
-                    ref(
-                        db,
-                        "products"
-                    )
-                );
-
-
-            await set(
-                newProduct,
-                productData
-            );
-
-
-            showToast(
-                "Product added successfully."
-            );
-
-        }
-
-
-        window.closeProductModal();
-
-        return false;
-
-    } catch (error) {
-
-        console.error(
-            "Product save error:",
-            error
-        );
-
-        firebaseError(error);
-
-        return false;
-
-    }
-
-}
-
-
-// ============================================================
-// PRODUCT FORM
-// ============================================================
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        const form =
-            $("productForm") ||
-            $("productModal")
-                ?.querySelector("form");
-
-
-        if (form) {
-
-            form.addEventListener(
-                "submit",
-                saveProduct
-            );
-
-        }
-
-    }
-);
-
-
-// ============================================================
-// EDIT PRODUCT
-// ============================================================
-
-window.editProduct =
-    function(productKey) {
-
-        window.openProductModal(
-            productKey
-        );
-
-    };
-
-
-// ============================================================
-// DELETE PRODUCT
-// ============================================================
-
-window.deleteProduct =
-    async function(
-        productKey
-    ) {
-
-        if (!db) return;
-
-
-        const product =
-            allProducts.find(
-                item =>
-                    item.firebaseKey ===
-                    productKey
-            );
-
-
-        if (!product) {
-
-            alert(
-                "Product not found."
-            );
-
-            return;
-
-        }
-
-
-        if (
-            !confirm(
-                `Delete "${
-                    product.name ||
-                    "this product"
-                }"?`
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        try {
-
-            await remove(
-                ref(
-                    db,
-                    `products/${productKey}`
-                )
-            );
-
-
-            showToast(
-                "Product deleted."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// ORDERS
-// ============================================================
-
-function loadOrders() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(db, "orders"),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            allOrders =
-                Object.entries(data)
-                    .map(
-                        ([key, order]) => ({
-
-                            firebaseKey:
-                                key,
-
-                            ...order
-
-                        })
-                    );
-
-
-            renderOrders();
-
-            updateCustomers();
-
-            updateDashboard();
-
-        },
-        error => {
-
-            console.error(
-                "Orders listener error:",
-                error
-            );
-
-            firebaseError(error);
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// RENDER ORDERS
-// ============================================================
-
-function renderOrders() {
-
-    const tbody =
-        $("ordersTable");
-
-
-    if (!tbody) return;
-
-
-    if (allOrders.length === 0) {
-
-        tbody.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="6"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
-                >
-
-                    No orders found.
-
-                </td>
-
-            </tr>
-
-        `;
-
-        return;
-
-    }
-
-
-    tbody.innerHTML =
-        allOrders
-            .slice()
-            .reverse()
-            .map(order => {
-
-                const orderId =
-                    order.orderId ||
-                    order.id ||
-                    order.firebaseKey;
-
-
-                const customer =
-                    order.customerName ||
-                    order.name ||
-                    order.customer?.name ||
-                    "Customer";
-
-
-                const mobile =
-                    order.mobile ||
-                    order.phone ||
-                    order.customerPhone ||
-                    order.customer?.phone ||
-                    "—";
-
-
-                const total =
-                    order.totalAmount ??
-                    order.total ??
-                    order.amount ??
-                    order.productPrice ??
-                    0;
-
-
-                const status =
-                    order.status ||
-                    "Pending";
-
-
-                return `
-
-                    <tr>
-
-                        <td>
-
-                            ${escapeHTML(
-                                orderId
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                customer
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                mobile
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${formatMoney(
-                                total
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            <select
-                                onchange="
-                                    updateOrderStatus(
-                                        '${escapeHTML(
-                                            order.firebaseKey
-                                        )}',
-                                        this.value
-                                    )
-                                "
-                            >
-
-                                ${
-                                    orderStatusOptions(
-                                        status
-                                    )
-                                }
-
-                            </select>
-
-                        </td>
-
-
-                        <td>
-
-                            <button
-                                type="button"
-                                onclick="
-                                    viewOrder(
-                                        '${escapeHTML(
-                                            order.firebaseKey
-                                        )}'
-                                    )
-                                "
-                            >
-
-                                View
-
-                            </button>
-
-                        </td>
-
-                    </tr>
-
-                `;
-
-            })
-            .join("");
-
-}
-
-
-// ============================================================
-// ORDER STATUS OPTIONS
-// ============================================================
-
-function orderStatusOptions(
-    current
-) {
-
-    const statuses = [
-
-        "Pending",
-
-        "Confirmed",
-
-        "Processing",
-
-        "Packed",
-
-        "Shipped",
-
-        "Out for Delivery",
-
-        "Delivered",
-
-        "Cancelled"
-
-    ];
-
-
-    return statuses
-        .map(
-            status => `
-
-                <option
-                    value="${escapeHTML(
-                        status
-                    )}"
-                    ${
-                        String(status)
-                            .toLowerCase() ===
-                        String(current)
-                            .toLowerCase()
-                            ? "selected"
-                            : ""
-                    }
-                >
-
-                    ${escapeHTML(
-                        status
-                    )}
-
-                </option>
-
-            `
-        )
-        .join("");
-
-}
-
-
-// ============================================================
-// UPDATE ORDER STATUS
-// ============================================================
-
-window.updateOrderStatus =
-    async function(
-        orderKey,
-        newStatus
-    ) {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await update(
-                ref(
-                    db,
-                    `orders/${orderKey}`
-                ),
-                {
-
-                    status:
-                        newStatus,
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            const timelineRef =
-                push(
-                    ref(
-                        db,
-                        `orders/${orderKey}/trackingTimeline`
-                    )
-                );
-
-
-            await set(
-                timelineRef,
-                {
-
-                    status:
-                        newStatus,
-
-                    label:
-                        newStatus,
-
-                    timestamp:
-                        Date.now(),
-
-                    note:
-                        `Order status changed to ${newStatus}`
-
-                }
-            );
-
-
-            showToast(
-                "Order status updated."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// VIEW ORDER
-// ============================================================
-
-window.viewOrder =
-    function(orderKey) {
-
-        const order =
-            allOrders.find(
-                item =>
-                    item.firebaseKey ===
-                    orderKey
-            );
-
-
-        if (!order) {
-
-            alert(
-                "Order not found."
-            );
-
-            return;
-
-        }
-
-
-        const items =
-            order.items ||
-            order.products ||
-            [];
-
-
-        let itemText =
-            "";
-
-
-        if (Array.isArray(items)) {
-
-            itemText =
-                items
-                    .map(item => {
-
-                        return (
-                            item.name ||
-                            item.title ||
-                            "Product"
-                        ) +
-                        " × " +
-                        (
-                            item.quantity ||
-                            1
-                        );
-
-                    })
-                    .join("\n");
-
-        } else if (
-            typeof items ===
-            "object"
-        ) {
-
-            itemText =
-                Object.values(items)
-                    .map(item => {
-
-                        return (
-                            item.name ||
-                            item.title ||
-                            "Product"
-                        ) +
-                        " × " +
-                        (
-                            item.quantity ||
-                            1
-                        );
-
-                    })
-                    .join("\n");
-
-        }
-
-
-        const message =
-
-            "Order ID: " +
-            (
-                order.orderId ||
-                order.id ||
-                order.firebaseKey
-            ) +
-
-            "\n\nCustomer: " +
-            (
-                order.customerName ||
-                order.name ||
-                "—"
-            ) +
-
-            "\n\nMobile: " +
-            (
-                order.mobile ||
-                order.phone ||
-                order.customerPhone ||
-                "—"
-            ) +
-
-            "\n\nAddress: " +
-            (
-                order.address ||
-                order.deliveryAddress ||
-                "—"
-            ) +
-
-            "\n\nTotal: " +
-            formatMoney(
-                order.totalAmount ??
-                order.total ??
-                order.amount ??
-                order.productPrice ??
-                0
-            ) +
-
-            "\n\nStatus: " +
-            (
-                order.status ||
-                "Pending"
-            ) +
-
-            "\n\nItems:\n" +
-            (
-                itemText ||
-                "No item details"
-            );
-
-
-        alert(message);
-
-    };
-
-
-// ============================================================
-// SELL REQUESTS
-// ============================================================
-
-function loadSellerRequests() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(
-            db,
-            "sellerRequests"
-        ),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            allSellerRequests =
-                Object.entries(data)
-                    .map(
-                        ([key, request]) => ({
-
-                            firebaseKey:
-                                key,
-
-                            ...request
-
-                        })
-                    );
-
-
-            renderSellerRequests();
-
-            updateDashboard();
-
-        },
-        error => {
-
-            console.error(
-                "Seller requests listener error:",
-                error
-            );
-
-            firebaseError(error);
-
-        }
-    );
-
-}
-
-
-// ============================================================
-// RENDER SELL REQUESTS
-// ============================================================
-
-function renderSellerRequests() {
-
-    const tbody =
-        $("sellsTable");
-
-
-    if (!tbody) return;
-
-
-    if (
-        allSellerRequests.length ===
-        0
-    ) {
-
-        tbody.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="6"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
-                >
-
-                    No sell requests found.
-
-                </td>
-
-            </tr>
-
-        `;
-
-        return;
-
-    }
-
-
-    tbody.innerHTML =
-        allSellerRequests
-            .slice()
-            .reverse()
-            .map(request => {
-
-                const seller =
-                    request.sellerName ||
-                    request.name ||
-                    "Seller";
-
-
-                const device =
-                    request.device ||
-                    request.model ||
-                    request.productName ||
-                    request.name ||
-                    "Device";
-
-
-                const price =
-                    request.price ??
-                    request.expectedPrice ??
-                    0;
-
-
-                const status =
-                    request.status ||
-                    "Pending Verification";
-
-
-                return `
-
-                    <tr>
-
-                        <td>
-
-                            ${escapeHTML(
-                                seller
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                device
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                request.contact ||
-                                request.mobile ||
-                                "—"
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${formatMoney(
-                                price
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            ${escapeHTML(
-                                status
-                            )}
-
-                        </td>
-
-
-                        <td>
-
-                            <button
-                                type="button"
-                                onclick="
-                                    openSellRequest(
-                                        '${escapeHTML(
-                                            request.firebaseKey
-                                        )}'
-                                    )
-                                "
-                            >
-
-                                View
-
-                            </button>
-
-                        </td>
-
-                    </tr>
-
-                `;
-
-            })
-            .join("");
-
-}
-
-
-// ============================================================
-// OPEN SELL REQUEST
-// ============================================================
-
-window.openSellRequest =
-    function(key) {
-
-        const request =
-            allSellerRequests.find(
-                item =>
-                    item.firebaseKey ===
-                    key
-            );
-
-
-        if (!request) {
-
-            alert(
-                "Sell request not found."
-            );
-
-            return;
-
-        }
-
-
-        currentSellRequest =
-            request;
-
-
-        console.log(
-            "Selected sell request:",
-            request
-        );
-
-
-        if ($("sellDetails")) {
-
-            $("sellDetails").innerHTML = `
-
-                <div>
-
-                    <strong>
-                        Seller:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.sellerName ||
-                        request.name ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Device:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.device ||
-                        request.model ||
-                        request.productName ||
-                        request.name ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Mobile:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.contact ||
-                        request.mobile ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Email:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.email ||
-                        request.userEmail ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Expected Price:
-                    </strong>
-
-                    ${formatMoney(
-                        request.price ??
-                        request.expectedPrice ??
-                        0
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Address:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.address ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Condition:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.condition ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Quality:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.quality ||
-                        "—"
-                    )}
-
-                </div>
-
-                <br>
-
-
-                <div>
-
-                    <strong>
-                        Status:
-                    </strong>
-
-                    ${escapeHTML(
-                        request.status ||
-                        "Pending"
-                    )}
-
-                </div>
-
-
-                ${
-                    Array.isArray(
-                        request.images
-                    )
-                        ? `
-
-                            <div
-                                style="
-                                    margin-top:15px;
-                                    display:flex;
-                                    flex-wrap:wrap;
-                                "
-                            >
-
-                                ${
-                                    request.images
-                                        .map(
-                                            img => `
-
-                                                <img
-                                                    src="${escapeHTML(img)}"
-                                                    style="
-                                                        width:100px;
-                                                        height:100px;
-                                                        object-fit:cover;
-                                                        margin:5px;
-                                                        border-radius:8px;
-                                                    "
-                                                    onerror="
-                                                        this.style.display='none'
-                                                    "
-                                                >
-
-                                            `
-                                        )
-                                        .join("")
-                                }
-
-                            </div>
-
-                          `
-                        : ""
-                }
-
-            `;
-
-        }
-
-
-        if ($("sellModal")) {
-
-            $("sellModal").style.display =
-                "flex";
-
-        }
-
-    };
-
-
-// ============================================================
-// CLOSE SELL MODAL
-// ============================================================
-
-window.closeSellModal =
-    function() {
-
-        if ($("sellModal")) {
-
-            $("sellModal").style.display =
-                "none";
-
-        }
-
-
-        currentSellRequest =
-            null;
-
-    };
-
-
-// ============================================================
-// ACCEPT SELL REQUEST
-// ACCEPT + LAUNCH PRODUCT
-// ============================================================
-
-window.acceptCurrentSell =
-    async function(event) {
-
-        if (event) {
-
-            event.preventDefault();
-            event.stopPropagation();
-
-        }
-
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return false;
-
-        }
-
-
-        if (!currentSellRequest) {
-
-            alert(
-                "No sell request selected."
-            );
-
-            return false;
-
-        }
-
-
-        const request =
-            currentSellRequest;
-
-
-        const key =
-            request.firebaseKey;
-
-
-        if (!key) {
-
-            alert(
-                "Sell request ID not found."
-            );
-
-            return false;
-
-        }
-
-
-        try {
-
-            console.log(
-                "Accepting sell request:",
-                key,
-                request
-            );
-
-
-            // =================================================
-            // CREATE PRODUCT
-            // =================================================
-
-            const productRef =
-                push(
-                    ref(
-                        db,
-                        "products"
-                    )
-                );
-
-
-            const price =
-                Number(
-                    request.price ??
-                    request.expectedPrice ??
-                    0
-                );
-
-
-            const product = {
-
-                name:
-                    request.device ||
-                    request.model ||
-                    request.productName ||
-                    request.name ||
-                    "Used Device",
-
-                brand:
-                    request.brand ||
-                    "",
-
-                category:
-                    request.category ||
-                    "Used Mobile",
-
-                price:
-                    price,
-
-                mrp:
-                    Number(
-                        request.mrp ??
-                        price
-                    ),
-
-                stock:
-                    1,
-
-                image:
-                    request.image ||
-                    (
-                        Array.isArray(
-                            request.images
-                        )
-                            ? request.images[0] ||
-                              ""
-                            : ""
-                    ),
-
-                images:
-                    Array.isArray(
-                        request.images
-                    )
-                        ? request.images
-                        : [],
-
-                ram:
-                    request.ram ||
-                    "",
-
-                rom:
-                    request.rom ||
-                    request.storage ||
-                    "",
-
-                processor:
-                    request.processor ||
-                    "",
-
-                display:
-                    request.display ||
-                    "",
-
-                camera:
-                    request.camera ||
-                    "",
-
-                battery:
-                    request.battery ||
-                    "",
-
-                condition:
-                    request.condition ||
-                    "Used",
-
-                quality:
-                    request.quality ||
-                    "Verification Pending",
-
-                warranty:
-                    request.warranty ||
-                    "",
-
-                sellerRequestId:
-                    key,
-
-                sellerName:
-                    request.sellerName ||
-                    request.name ||
-                    "",
-
-                sellerMobile:
-                    request.contact ||
-                    request.mobile ||
-                    "",
-
-                sellerEmail:
-                    request.email ||
-                    request.userEmail ||
-                    "",
-
-                status:
-                    "approved",
-
-                type:
-                    "seller",
-
-                createdAt:
-                    Date.now(),
-
-                updatedAt:
-                    Date.now()
-
-            };
-
-
-            await set(
-                productRef,
-                product
-            );
-
-
-            console.log(
-                "Product created:",
-                productRef.key
-            );
-
-
-            // =================================================
-            // UPDATE SELL REQUEST
-            // =================================================
-
-            await update(
-                ref(
-                    db,
-                    `sellerRequests/${key}`
-                ),
-                {
-
-                    status:
-                        "Accepted & Launched",
-
-                    productId:
-                        productRef.key,
-
-                    acceptedAt:
-                        Date.now(),
-
-                    launchedAt:
-                        Date.now(),
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            // =================================================
-            // APPROVED SELLER
-            // =================================================
-
-            const approvedSellerRef =
-                push(
-                    ref(
-                        db,
-                        "approvedSellers"
-                    )
-                );
-
-
-            await set(
-                approvedSellerRef,
-                {
-
-                    sellerName:
-                        request.sellerName ||
-                        request.name ||
-                        "",
-
-                    mobile:
-                        request.contact ||
-                        request.mobile ||
-                        "",
-
-                    email:
-                        request.email ||
-                        request.userEmail ||
-                        "",
-
-                    device:
-                        product.name,
-
-                    agreedPrice:
-                        product.price,
-
-                    productId:
-                        productRef.key,
-
-                    sellerRequestId:
-                        key,
-
-                    status:
-                        "active",
-
-                    createdAt:
-                        Date.now()
-
-                }
-            );
-
-
-            // =================================================
-            // SUCCESS
-            // =================================================
-
-            showToast(
-                "Sell request accepted and product launched!"
-            );
-
-
-            currentSellRequest =
-                null;
-
-
-            if ($("sellModal")) {
-
-                $("sellModal").style.display =
-                    "none";
-
-            }
-
-
-            console.log(
-                "Sell request accepted successfully."
-            );
-
-
-            return false;
-
-        } catch (error) {
-
-            console.error(
-                "SELL ACCEPT ERROR:",
-                error
-            );
-
-            firebaseError(error);
-
-            return false;
-
-        }
-
-    };
-
-
-// ============================================================
-// REJECT SELL REQUEST
-// ============================================================
-
-window.rejectCurrentSell =
-    async function(event) {
-
-        if (event) {
-
-            event.preventDefault();
-            event.stopPropagation();
-
-        }
-
-
-        if (
-            !db ||
-            !currentSellRequest
-        ) {
-
-            alert(
-                "No sell request selected."
-            );
-
-            return false;
-
-        }
-
-
-        const key =
-            currentSellRequest.firebaseKey;
-
-
-        if (
-            !confirm(
-                "Reject this sell request?"
-            )
-        ) {
-
-            return false;
-
-        }
-
-
-        try {
-
-            await update(
-                ref(
-                    db,
-                    `sellerRequests/${key}`
-                ),
-                {
-
-                    status:
-                        "Rejected",
-
-                    rejectedAt:
-                        Date.now(),
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Sell request rejected."
-            );
-
-
-            currentSellRequest =
-                null;
-
-
-            if ($("sellModal")) {
-
-                $("sellModal").style.display =
-                    "none";
-
-            }
-
-
-            return false;
-
-        } catch (error) {
-
-            console.error(
-                "SELL REJECT ERROR:",
-                error
-            );
-
-            firebaseError(error);
-
-            return false;
-
-        }
-
-    };
-
-
-// ============================================================
-// CUSTOMERS
-// ============================================================
-
-function updateCustomers() {
-
-    const customersMap =
-        {};
-
-
-    allOrders.forEach(
-        order => {
-
-            const phone =
-                order.mobile ||
-                order.phone ||
-                order.customerPhone ||
-                order.customer?.phone;
-
-
-            if (!phone) return;
-
-
-            if (!customersMap[phone]) {
-
-                customersMap[phone] = {
-
-                    name:
-                        order.customerName ||
-                        order.name ||
-                        order.customer?.name ||
-                        "Customer",
-
-                    mobile:
-                        phone,
-
-                    orders:
-                        0,
-
-                    total:
-                        0
-
-                };
-
-            }
-
-
-            customersMap[phone]
-                .orders++;
-
-
-            customersMap[phone]
-                .total +=
-                Number(
-                    order.totalAmount ??
-                    order.total ??
-                    order.amount ??
-                    order.productPrice ??
-                    0
-                );
-
-        }
-    );
-
-
-    allCustomers =
-        Object.values(
-            customersMap
-        );
-
-
-    renderCustomers();
-
-}
-
-
-// ============================================================
-// RENDER CUSTOMERS
-// ============================================================
-
-function renderCustomers() {
-
-    const tbody =
-        $("customersTable");
-
-
-    if (!tbody) return;
-
-
-    if (
-        allCustomers.length ===
-        0
-    ) {
-
-        tbody.innerHTML = `
-
-            <tr>
-
-                <td
-                    colspan="4"
-                    style="
-                        text-align:center;
-                        padding:25px;
-                    "
-                >
-
-                    No customers found.
-
-                </td>
-
-            </tr>
-
-        `;
-
-        return;
-
-    }
-
-
-    tbody.innerHTML =
-        allCustomers
-            .map(
-                customer => `
-
-                    <tr>
-
-                        <td>
-
-                            ${escapeHTML(
-                                customer.name
-                            )}
-
-                        </td>
-
-                        <td>
-
-                            ${escapeHTML(
-                                customer.mobile
-                            )}
-
-                        </td>
-
-                        <td>
-
-                            ${customer.orders}
-
-                        </td>
-
-                        <td>
-
-                            ${formatMoney(
-                                customer.total
-                            )}
-
-                        </td>
-
-                    </tr>
-
-                `
-            )
-            .join("");
-
-}
-
-
-// ============================================================
-// TRACKING
-// ============================================================
-
-window.addTrackingUpdate =
-    async function() {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        const orderId =
-            $("trackingOrderId")
-                ?.value
-                ?.trim();
-
-
-        const status =
-            $("trackingStatus")
-                ?.value
-                ?.trim();
-
-
-        const message =
-            $("trackingMessage")
-                ?.value
-                ?.trim();
-
-
-        if (!orderId) {
-
-            alert(
-                "Enter Order ID."
-            );
-
-            return;
-
-        }
-
-
-        if (!status) {
-
-            alert(
-                "Enter tracking status."
-            );
-
-            return;
-
-        }
-
-
-        const order =
-            allOrders.find(
-                item =>
-
-                    item.firebaseKey ===
-                    orderId ||
-
-                    item.orderId ===
-                    orderId ||
-
-                    item.id ===
-                    orderId
-            );
-
-
-        if (!order) {
-
-            alert(
-                "Order not found.\n\n" +
-                "Make sure the Order ID is correct."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await update(
-                ref(
-                    db,
-                    `orders/${order.firebaseKey}`
-                ),
-                {
-
-                    status:
-                        status,
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            const timeline =
-                push(
-                    ref(
-                        db,
-                        `orders/${order.firebaseKey}/trackingTimeline`
-                    )
-                );
-
-
-            await set(
-                timeline,
-                {
-
-                    status:
-                        status,
-
-                    label:
-                        status,
-
-                    message:
-                        message,
-
-                    note:
-                        message,
-
-                    timestamp:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Tracking update added."
-            );
-
-
-            if ($("trackingOrderId"))
-                $("trackingOrderId").value =
-                    "";
-
-
-            if ($("trackingMessage"))
-                $("trackingMessage").value =
-                    "";
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// GOOGLE MAPS
-// ============================================================
-
-function loadMapSettings() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(
-            db,
-            "storeLocation"
-        ),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            if ($("mapLat"))
-                $("mapLat").value =
-                    data.lat || "";
-
-
-            if ($("mapLng"))
-                $("mapLng").value =
-                    data.lng || "";
-
-
-            if ($("mapFrame"))
-                $("mapFrame").value =
-                    data.mapFrame ||
-                    data.mapUrl ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Map listener error:",
-                error
-            );
-
-        }
-    );
-
-}
-
-
-window.saveMapLocation =
-    async function() {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        const lat =
-            $("mapLat")
-                ?.value
-                ?.trim() || "";
-
-
-        const lng =
-            $("mapLng")
-                ?.value
-                ?.trim() || "";
-
-
-        const mapFrame =
-            $("mapFrame")
-                ?.value
-                ?.trim() || "";
-
-
-        try {
-
-            await set(
-                ref(
-                    db,
-                    "storeLocation"
-                ),
-                {
-
-                    lat:
-                        lat,
-
-                    lng:
-                        lng,
-
-                    mapFrame:
-                        mapFrame,
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Map location saved."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// HOMEPAGE
-// ============================================================
-
-function loadHomepage() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(
-            db,
-            "homepageSettings"
-        ),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            if ($("hpAnnouncement"))
-                $("hpAnnouncement").value =
-                    data.announcement || "";
-
-
-            if ($("hpHeadline"))
-                $("hpHeadline").value =
-                    data.headline ||
-                    data.heroHeadline ||
-                    "";
-
-
-            if ($("hpSubtitle"))
-                $("hpSubtitle").value =
-                    data.subtitle ||
-                    data.heroSubtitle ||
-                    "";
-
-
-            if ($("hpImage"))
-                $("hpImage").value =
-                    data.image ||
-                    data.heroImage ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Homepage listener error:",
-                error
-            );
-
-        }
-    );
-
-}
-
-
-window.saveHomepage =
-    async function() {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await set(
-                ref(
-                    db,
-                    "homepageSettings"
-                ),
-                {
-
-                    announcement:
-                        $("hpAnnouncement")
-                            ?.value || "",
-
-                    headline:
-                        $("hpHeadline")
-                            ?.value || "",
-
-                    subtitle:
-                        $("hpSubtitle")
-                            ?.value || "",
-
-                    image:
-                        $("hpImage")
-                            ?.value || "",
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Homepage settings saved."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// DELIVERY
-// ============================================================
-
-function loadDelivery() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(
-            db,
-            "deliverySettings"
-        ),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            if ($("deliveryCharge"))
-                $("deliveryCharge").value =
-                    data.charge || 0;
-
-
-            if ($("freeDelivery"))
-                $("freeDelivery").value =
-                    data.freeDelivery ??
-                    data.freeThreshold ??
-                    0;
-
-
-            if ($("deliveryDays"))
-                $("deliveryDays").value =
-                    data.days ||
-                    data.deliveryDays ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Delivery listener error:",
-                error
-            );
-
-        }
-    );
-
-}
-
-
-window.saveDelivery =
-    async function() {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await set(
-                ref(
-                    db,
-                    "deliverySettings"
-                ),
-                {
-
-                    charge:
-                        Number(
-                            $("deliveryCharge")
-                                ?.value || 0
-                        ),
-
-                    freeDelivery:
-                        Number(
-                            $("freeDelivery")
-                                ?.value || 0
-                        ),
-
-                    days:
-                        $("deliveryDays")
-                            ?.value || "",
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Delivery settings saved."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// WEBSITE SETTINGS
-// ============================================================
-
-function loadWebsiteSettings() {
-
-    if (!db) return;
-
-
-    onValue(
-        ref(
-            db,
-            "websiteSettings"
-        ),
-        snapshot => {
-
-            const data =
-                snapshot.val() || {};
-
-
-            if ($("siteTitle"))
-                $("siteTitle").value =
-                    data.siteTitle ||
-                    data.title ||
-                    "";
-
-
-            if ($("logoUrl"))
-                $("logoUrl").value =
-                    data.logoUrl ||
-                    "";
-
-
-            if ($("facebookUrl"))
-                $("facebookUrl").value =
-                    data.facebookUrl ||
-                    data.facebook ||
-                    "";
-
-
-            if ($("instagramUrl"))
-                $("instagramUrl").value =
-                    data.instagramUrl ||
-                    data.instagram ||
-                    "";
-
-        },
-        error => {
-
-            console.error(
-                "Website settings listener error:",
-                error
-            );
-
-        }
-    );
-
-}
-
-
-window.saveWebsiteSettings =
-    async function() {
-
-        if (!db) {
-
-            alert(
-                "Firebase is not connected."
-            );
-
-            return;
-
-        }
-
-
-        try {
-
-            await set(
-                ref(
-                    db,
-                    "websiteSettings"
-                ),
-                {
-
-                    siteTitle:
-                        $("siteTitle")
-                            ?.value || "",
-
-                    logoUrl:
-                        $("logoUrl")
-                            ?.value || "",
-
-                    facebookUrl:
-                        $("facebookUrl")
-                            ?.value || "",
-
-                    instagramUrl:
-                        $("instagramUrl")
-                            ?.value || "",
-
-                    updatedAt:
-                        Date.now()
-
-                }
-            );
-
-
-            showToast(
-                "Website settings saved."
-            );
-
-
-        } catch (error) {
-
-            console.error(error);
-
-            firebaseError(error);
-
-        }
-
-    };
-
-
-// ============================================================
-// DASHBOARD
-// ============================================================
-
-function updateDashboard() {
-
-    if ($("totalProducts")) {
-
-        $("totalProducts").textContent =
-            allProducts.length;
-
-    }
-
-
-    if ($("totalOrders")) {
-
-        $("totalOrders").textContent =
-            allOrders.length;
-
-    }
-
-
-    const pendingOrders =
-        allOrders.filter(
-            order => {
-
-                const status =
-                    String(
-                        order.status ||
-                        "Pending"
-                    ).toLowerCase();
-
-
-                return (
-                    status === "pending" ||
-                    status ===
-                    "pending verification"
-                );
-
-            }
-        );
-
-
-    if ($("pendingOrders")) {
-
-        $("pendingOrders").textContent =
-            pendingOrders.length;
-
-    }
-
-
-    if ($("totalSells")) {
-
-        $("totalSells").textContent =
-            allSellerRequests.length;
-
-    }
-
-
-    renderRecentOrders();
-
-}
-
-
-// ============================================================
-// RECENT ORDERS
-// ============================================================
-
-function renderRecentOrders() {
-
-    const container =
-        $("recentOrders");
-
-
-    if (!container) return;
-
-
-    if (
-        allOrders.length ===
-        0
-    ) {
-
-        container.innerHTML =
-            "No recent orders.";
-
-        return;
-
-    }
-
-
-    container.innerHTML =
-        allOrders
-            .slice()
-            .reverse()
-            .slice(0, 5)
-            .map(
-                order => `
-
-                    <div
-                        style="
-                            padding:10px;
-                            margin-bottom:8px;
-                            border-bottom:
-                                1px solid #333;
-                        "
-                    >
-
-                        <strong>
-
-                            ${escapeHTML(
-                                order.orderId ||
-                                order.id ||
-                                order.firebaseKey
-                            )}
-
-                        </strong>
-
-
-                        <br>
-
-
-                        <small>
-
-                            ${escapeHTML(
-                                order.customerName ||
-                                order.name ||
-                                "Customer"
-                            )}
-
-                        </small>
-
-
-                        <br>
-
-
-                        <span>
-
-                            ${formatMoney(
-                                order.totalAmount ??
-                                order.total ??
-                                order.amount ??
-                                order.productPrice ??
-                                0
-                            )}
-
-                        </span>
-
-
-                        <br>
-
-
-                        <small>
-
-                            ${escapeHTML(
-                                order.status ||
-                                "Pending"
-                            )}
-
-                        </small>
-
-                    </div>
-
-                `
-            )
-            .join("");
-
-}
-
-
-// ============================================================
-// START FIREBASE LISTENERS
-// ============================================================
-
-function startFirebaseListeners() {
-
-    if (!db) {
-
-        console.error(
-            "Firebase database is not available."
-        );
-
-        return;
-
-    }
-
-
-    console.log(
-        "Starting Firebase listeners..."
-    );
-
-
-    loadProducts();
-
-    loadOrders();
-
-    loadSellerRequests();
-
-    loadServices();
-
-    loadMapSettings();
-
-    loadHomepage();
-
-    loadDelivery();
-
-    loadWebsiteSettings();
-
-
-    console.log(
-        "All admin listeners started."
-    );
-
-}
-
-
-// ============================================================
-// PAGE START
-// ============================================================
-
-let adminListenersStarted = false;
-
-function showAdminLogin(errorMessage = "") {
-    const login = $("adminLogin");
-    const panel = $("adminApp");
-
-    if (login) login.style.display = "flex";
-    if (panel) panel.style.display = "none";
-
-    const errorBox = $("adminLoginError");
-    if (errorBox) {
-        if (errorMessage) {
-            errorBox.textContent = errorMessage;
-            errorBox.style.display = "block";
-        } else {
-            errorBox.textContent = "";
-            errorBox.style.display = "none";
-        }
-    }
-}
-
-function showAdminPanel(user) {
-    const login = $("adminLogin");
-    const panel = $("adminApp");
-
-    if (login) login.style.display = "none";
-    if (panel) panel.style.display = "flex";
-
-    const emailEl = $("adminEmail");
-    if (emailEl) {
-        emailEl.textContent = user?.email || "Admin";
-    }
-
-    if (!adminListenersStarted) {
-        adminListenersStarted = true;
-        startFirebaseListeners();
-    }
-}
-
-window.adminLogin = async function () {
-    const email = $("adminLoginEmail")?.value.trim() || "";
-    const password = $("adminLoginPassword")?.value || "";
-    const button = $("adminLoginButton");
-
-    showAdminLogin("");
-
-    if (!email || !password) {
-        showAdminLogin("Email and password are required.");
-        return;
-    }
-
-    if (button) {
-        button.disabled = true;
-        button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> LOGIN...';
-    }
-
-    try {
-        const result = await signInWithEmailAndPassword(auth, email, password);
-        const user = result.user;
-
-        if (user.uid !== "xHYXzY9Xi2P50m78yOLOv9OZFIP2") {
-            await signOut(auth);
-            throw new Error("Access denied. This account is not the store administrator.");
-        }
-
-        showAdminPanel(user);
-    } catch (error) {
-        console.error("Admin login error:", error);
-
-        let message = "Login failed. Check your email and password.";
-
-        if (error?.message?.includes("Access denied")) {
-            message = error.message;
-        } else if (error?.code === "auth/invalid-credential") {
-            message = "Invalid email or password.";
-        } else if (error?.code === "auth/user-not-found") {
-            message = "Admin account was not found in Firebase Authentication.";
-        } else if (error?.code === "auth/wrong-password") {
-            message = "Wrong password.";
-        }
-
-        showAdminLogin(message);
-    } finally {
-        if (button) {
-            button.disabled = false;
-            button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> LOGIN';
-        }
-    }
-};
-
-window.adminLogout = async function () {
-    try {
-        await signOut(auth);
-    } catch (error) {
-        console.error("Admin logout error:", error);
-    }
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-    console.log("Rittik Mobile Shop Admin loaded.");
-    initializeNavigation();
-
-    const form = $("adminLoginForm");
-    if (form) {
-        form.addEventListener("submit", (event) => {
-            event.preventDefault();
-            window.adminLogin();
-        });
-    }
-
-    showAdminLogin("");
-
-    onAuthStateChanged(auth, (user) => {
-        if (!user) {
-            showAdminLogin("");
-            return;
-        }
-
-        if (user.uid !== "xHYXzY9Xi2P50m78yOLOv9OZFIP2") {
-            signOut(auth);
-            showAdminLogin("Access denied. This account is not the store administrator.");
-            return;
-        }
-
-        showAdminPanel(user);
-    });
-});
-
-
-// ============================================================
-// GLOBAL DEBUG
-// ============================================================
-
-window.RittikAdmin = {
-
-    getProducts:
-        () => allProducts,
-
-    getOrders:
-        () => allOrders,
-
-    getSellRequests:
-        () => allSellerRequests,
-
-    getCustomers:
-        () => allCustomers,
-
-    getCurrentSellRequest:
-        () => currentSellRequest,
-
-    firebase:
-        () => db
-
-};
-
-
-console.log(
-    "RITTIK MOBILE SHOP ADMIN JS READY"
-);
+def exposure(d):
+    s = 10 + len(d["breach"]) * 25 + (10 if len(d["phones"]) > 1 else 0) \
+        + (10 if any(x["platform"] == "github" for x in d["social"]) else 0) \
+        + (10 if len(d["social"]) >= 4 else 0)
+    return min(s, 100)
+
+
+# ------------------------------------------------------------ screens
+def show_profile(db, pid, via=None):
+    d = load(db, pid)
+    p = d["p"]
+    age = int((time.time() - time.mktime(time.strptime(p["dob"], "%Y-%m-%d"))) / 31557600)
+    header()
+    typewriter(f">> DOSSIER #{pid:05d}  [DUMMY RECORD]", C, 0.01)
+    box(fit(p["full_name"].upper(), W - 8), [
+        (f"Gender/Age : {p['gender']} / {age}", LG),
+        (f"DOB        : {p['dob']}", LG),
+        (f"Father     : {p['father_name']}", LG),
+        (f"Work       : {d['job']['occupation']} @ {d['job']['company']}", LG),
+    ])
+    box("PHONE NUMBERS", [
+        (f"{'*' if ph['is_primary'] else ' '} {fmt_phone(ph['number'], ph['country_code'])}", LG)
+        if not via or ph["number"] != via else
+        (f"> {fmt_phone(ph['number'], ph['country_code'])}  <- searched", Y)
+        for ph in d["phones"]
+    ] + [(f"   {ph['op']} | {ph['circle']} | {ph['line_type']}"
+          f"{' | WhatsApp' if ph['whatsapp'] else ''}", D + G) for ph in d["phones"]])
+    box("EMAIL", [(e["email"], C) for e in d["emails"]])
+    box("ADDRESS", [(f"{a['address_type']}: {a['line1']}", LG) for a in d["addrs"]] +
+        [(f"      {a['city']}, {a['state']} {a['pincode']}", D + G) for a in d["addrs"]])
+    box("SOCIAL PROFILES", [(f"{s['platform']:<9} @{s['handle']}", C) for s in d["social"]]
+        or [("None found", D)])
+    box("DEVICES / LAST SEEN", [(f"{v['model']} ({v['os']})", LG) for v in d["devs"]] +
+        [(f"IP {v['last_ip']} | {v['last_seen']}", D + G) for v in d["devs"]])
+    rows = []
+    for b in d["breach"]:
+        rows += [(f"[!] {b['name']} ({b['breach_date']})", R), (f"    leaked: {b['leaked_fields']}", Y)]
+    box("BREACH RECORDS (FAKE)", rows or [("No breach records found", LG)])
+
+    score = exposure(d)
+    col = R if score >= 70 else Y if score >= 40 else LG
+    out(f" {B}EXPOSURE SCORE: {col}{'HIGH' if score >= 70 else 'MEDIUM' if score >= 40 else 'LOW'}{X}")
+    animate_bar(score, col)
+    city_id = db.execute("SELECT city_id FROM addresses WHERE person_id=? AND address_type='Home'", (pid,)).fetchone()
+    rel = db.execute("""SELECT p.full_name, ph.number FROM employment e
+                        JOIN persons p ON p.person_id=e.person_id
+                        JOIN phones ph ON ph.person_id=p.person_id AND ph.is_primary=1
+                        JOIN addresses a ON a.person_id=p.person_id AND a.address_type='Home'
+                        WHERE e.company=? AND a.city_id=? AND p.person_id!=? LIMIT 4""",
+                     (d["job"]["company"], city_id["city_id"], pid)).fetchall() if city_id else []
+    box("RELATED (same company + city)",
+        [(f"{r['full_name']} | {fmt_phone(r['number'])}", LG) for r in rel] or [("None found", D)])
+    footer()
+    return [{"person_id": pid, "full_name": p["full_name"], "phone": d["phones"][0]["number"],
+             "city": d["addrs"][0]["city"]}]
+
+
+def scan(term):
+    for label in (f"Querying index '{fit(term, 16)}'", "Correlating handles", "Scanning breach logs"):
+        spinner(label, 0.3)
+
+
+def phone_lookup(db):
+    header()
+    out(f" {C}Enter 10-digit mobile number (e.g. 9876543210){X}")
+    raw = prompt("number")
+    if not raw:
+        return None
+    num = normalize_number(raw)
+    scan(num)
+    if len(num) == 10:
+        pid = phone_owner(db, num)
+        log_search(db, num, "phone", 1 if pid else 0)
+        if pid:
+            res = show_profile(db, pid, via=num)
+            prompt("Enter to go back")
+            return res
+        header()
+        box("NO RECORD", [(f"{fmt_phone(num)} not in dummy DB", R),
+                          ("Try a number from the demo list (menu 8).", Y)])
+        prompt("Enter to go back")
+        return None
+    rows = find(db, "phone", num)
+    log_search(db, num, "phone-partial", len(rows))
+    return results(db, rows, f"Partial number: {num}")
+
+
+def results(db, rows, label):
+    per, page = 8, 0
+    pages = max(1, (len(rows) + per - 1) // per)
+    while True:
+        header()
+        out(f" {C}{fit(label, W - 20)}{X} {D}{len(rows)} hit(s) | page {page + 1}/{pages}{X}")
+        chunk = rows[page * per:(page + 1) * per]
+        lines = []
+        for i, r in enumerate(chunk, 1):
+            lines.append((f"{i}. {fit(r['full_name'], 20)} {fit(r['city'], W - 30)}", LG))
+            lines.append((f"   {fmt_phone(r['phone'])}", D + G))
+        box("RESULTS", lines or [("No records found.", R)])
+        out(f" {D}[number]=open  n=next  p=prev  b=back{X}")
+        c = prompt("select").lower()
+        if c == "n" and page < pages - 1:
+            page += 1
+        elif c == "p" and page > 0:
+            page -= 1
+        elif c in ("b", "q", ""):
+            return [dict(r) for r in rows]
+        elif c.isdigit() and 1 <= int(c) <= len(chunk):
+            show_profile(db, chunk[int(c) - 1]["person_id"])
+            prompt("Enter to go back")
+
+
+def text_search(db, kind, label):
+    header()
+    term = prompt(f"search {label}")
+    if not term:
+        return None
+    scan(term)
+    rows = find(db, kind, term)
+    log_search(db, term, kind, len(rows))
+    return results(db, rows, f"{label}: '{term}'")
+
+
+def random_dossier(db):
+    header()
+    scan("RANDOM TARGET")
+    pid = db.execute("SELECT person_id FROM persons ORDER BY RANDOM() LIMIT 1").fetchone()[0]
+    res = show_profile(db, pid)
+    prompt("Enter to go back")
+    return res
+
+
+def demo_numbers(db):
+    header()
+    rows = db.execute("""SELECT ph.number, p.full_name, c.name city,
+                         (SELECT COUNT(*) FROM breach_exposures e WHERE e.person_id=p.person_id) nb
+                         FROM phones ph JOIN persons p ON p.person_id=ph.person_id
+                         LEFT JOIN addresses a ON a.person_id=p.person_id AND a.address_type='Home'
+                         LEFT JOIN cities c ON c.city_id=a.city_id
+                         WHERE ph.is_primary=1 AND p.person_id IN (1, 250, 4000, 12000, 24000)""").fetchall()
+    box("DEMO NUMBERS (try in menu 1)",
+        [(f"{r['number']}  {fit(r['full_name'], W - 24)}", LG) for r in rows] +
+        [(f"   {r['city']} | breaches: {r['nb']}", D + G) for r in rows])
+    footer()
+    prompt("Enter to go back")
+
+
+def stats(db):
+    header()
+    scan("database statistics")
+    n = lambda t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+    people, nb = n("persons"), db.execute("SELECT COUNT(DISTINCT person_id) FROM breach_exposures").fetchone()[0]
+    box("DB OVERVIEW", [(f"People           : {people}", LG), (f"Phone numbers    : {n('phones')}", LG),
+                        (f"Emails           : {n('emails')}", LG), (f"Social profiles  : {n('social_profiles')}", LG),
+                        (f"Breached people  : {nb} ({nb * 100 // people}%)", R)])
+    ops = db.execute("""SELECT o.name, COUNT(*) n FROM phones ph JOIN operators o ON o.operator_id=ph.operator_id
+                        GROUP BY o.name ORDER BY n DESC""").fetchall()
+    top = ops[0]["n"]
+    box("OPERATORS", [(f"{r['name']:<7}{'█' * max(1, r['n'] * (W - 24) // top)} {r['n']}", C) for r in ops])
+    cities = db.execute("""SELECT c.name, COUNT(*) n FROM addresses a JOIN cities c ON c.city_id=a.city_id
+                           WHERE a.address_type='Home' GROUP BY c.name ORDER BY n DESC LIMIT 5""").fetchall()
+    top = cities[0]["n"]
+    box("TOP CITIES", [(f"{fit(r['name'], 10):<11}{'█' * max(1, r['n'] * (W - 28) // top)} {r['n']}", Y) for r in cities])
+    footer()
+    prompt("Enter to go back")
+
+
+def history(db):
+    header()
+    rows = db.execute("SELECT * FROM search_logs ORDER BY log_id DESC LIMIT 10").fetchall()
+    box("SEARCH HISTORY (last 10)",
+        [(f"{r['searched_at'][5:16]} {r['search_type']:<7} {fit(r['query'], W - 34)} [{r['hits']}]", LG)
+         for r in rows] or [("No searches yet", D)])
+    footer()
+    prompt("Enter to go back")
+
+
+def export(rows):
+    header()
+    if not rows:
+        out(f" {Y}Nothing to export. Run a search first.{X}")
+    else:
+        path = os.path.join(HERE, "hexcaweb_results.csv")
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(rows[0].keys())
+            w.writerows([tuple(r.values()) for r in rows])
+            w.writerow([])
+            w.writerow([f"{BRAND} - {DISCLAIMER}"])
+        spinner("Writing CSV", 0.4)
+        out(f" {LG}Saved {len(rows)} row(s) -> {path}{X}")
+    prompt("Enter to go back")
+
+
+def intro():
+    clear()
+    if not FAST:
+        matrix_rain()
+    logo(True)
+    out()
+    for label in ("Loading kernel modules", "Mounting dummy database", "Arming correlation engine",
+                  "Syncing breach-log scanner", "Locking disclaimer: DUMMY ONLY"):
+        spinner(label, 0.35)
+    out()
+    box("SYSTEM READY", [("Educational OSINT lab on a FAKE database.", LG), (DISCLAIMER, R)])
+    nap(0.6)
+
+
+def menu():
+    box("MAIN MENU", [
+        ("1  PHONE LOOKUP  (number -> full info)", Y),
+        ("2  Search by Name", LG),
+        ("3  Search by Email", LG),
+        ("4  Search by Username / Handle", LG),
+        ("5  Browse by City", LG),
+        ("6  Random Dossier", C),
+        ("7  Database Stats", C),
+        ("8  Demo Numbers", C),
+        ("9  Search History", C),
+        ("e  Export last results (CSV)", C),
+        ("0  Exit", R),
+    ])
+
+
+def main():
+    intro()
+    db = connect()
+    last = []
+    while True:
+        header()
+        menu()
+        c = prompt().lower()
+        if c == "1":
+            last = phone_lookup(db) or last
+        elif c == "2":
+            last = text_search(db, "name", "name") or last
+        elif c == "3":
+            last = text_search(db, "email", "email") or last
+        elif c == "4":
+            last = text_search(db, "handle", "username") or last
+        elif c == "5":
+            last = text_search(db, "city", "city") or last
+        elif c == "6":
+            last = random_dossier(db) or last
+        elif c == "7":
+            stats(db)
+        elif c == "8":
+            demo_numbers(db)
+        elif c == "9":
+            history(db)
+        elif c == "e":
+            export(last)
+        elif c == "0":
+            clear()
+            logo(False, R)
+            typewriter("Session closed. Stay legal. Learn ethically.", LG)
+            footer()
+            break
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        out(f"\n{R}[!] Interrupted. Bye.{X}")
